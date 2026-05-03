@@ -1,23 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-6FFGLF0PGX"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-6FFGLF0PGX');
-</script>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Apostolic Succession Explorer</title>
-<style>
-  :root{--bg:#1a0f08;--panel:#241610;--ink:#f4e4c1;--gold:#ffd27a;--dim:#8a7660;--pb:#e55353;--found:#6fd96f;--fem:#c08bff;--dio:#6ab6ff;--hi:#5bd9ff;}
+<style>  :root{--bg:#1a0f08;--panel:#241610;--ink:#f4e4c1;--gold:#ffd27a;--dim:#8a7660;--pb:#e55353;--found:#6fd96f;--fem:#c08bff;--dio:#6ab6ff;--hi:#5bd9ff;}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--ink);font-family:Georgia,serif;overflow:hidden;height:100vh;display:flex;flex-direction:column}
-  header{padding:14px 24px 6px;text-align:center;border-bottom:1px solid #3a2515}
-  h1{color:var(--gold);font-size:26px;font-weight:normal;letter-spacing:1px}
-  .sub{color:var(--dim);font-size:13px;margin-top:2px}
+  body{background:var(--bg);color:var(--ink);font-family:Georgia,serif;overflow:hidden;height:100vh;height:100dvh;display:flex;flex-direction:column}
+  header{padding:10px 16px 6px;text-align:center;border-bottom:1px solid #3a2515}
+  h1{color:var(--gold);font-size:22px;font-weight:normal;letter-spacing:1px}
+  .sub{color:var(--dim);font-size:12px;margin-top:2px}
+  /* ── Desktop toolbar ── */
   .toolbar{display:flex;gap:10px;align-items:center;padding:10px 20px;border-bottom:1px solid #3a2515;flex-wrap:wrap}
   .toolbar label{color:var(--dim);font-size:13px}
   .toolbar select,.toolbar input,.toolbar button{background:#2a1a11;color:var(--ink);border:1px solid #5a3a22;padding:7px 12px;font-family:inherit;font-size:14px;border-radius:3px;cursor:pointer}
@@ -25,13 +18,36 @@
   .toolbar input[type=text]{min-width:220px}
   .toolbar button:hover,.toolbar button.active{background:#3a2518;border-color:var(--gold);color:var(--gold)}
   .spacer{flex:1}
-  .main{flex:1;display:flex;overflow:hidden}
+  /* ── Mobile toolbar ── */
+  .mob-toolbar{display:none;flex-direction:column;gap:8px;padding:10px 12px;border-bottom:1px solid #3a2515;background:var(--panel)}
+  .mob-row{display:flex;gap:8px;align-items:center}
+  .mob-toolbar select,.mob-toolbar input[type=text]{flex:1;background:#2a1a11;color:var(--ink);border:1px solid #5a3a22;padding:10px 12px;font-family:inherit;font-size:15px;border-radius:6px;cursor:pointer;-webkit-appearance:none}
+  .mob-toolbar .mob-gen{background:#3a2518;border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-family:inherit;font-size:15px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .mob-extra{display:flex;gap:6px;flex-wrap:wrap}
+  .mob-btn{background:#2a1a11;color:var(--ink);border:1px solid #5a3a22;padding:7px 12px;font-family:inherit;font-size:13px;border-radius:6px;cursor:pointer}
+  .mob-btn.active{border-color:var(--gold);color:var(--gold)}
+  .mob-chk-label{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:13px;padding:4px 0}
+  /* ── Layout ── */
+  .main{flex:1;display:flex;overflow:hidden;position:relative}
   #viz{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,#2a1810 0%,#0f0804 100%)}
-  #svg{width:100%;height:100%;cursor:grab}
+  #svg{width:100%;height:100%;cursor:grab;touch-action:none}
   #svg:active{cursor:grabbing}
+  /* ── Desktop side panel ── */
   .side{width:320px;background:var(--panel);border-left:1px solid #3a2515;padding:16px;overflow-y:auto;font-size:13px}
   .side h3{color:var(--gold);margin-bottom:8px;font-weight:normal;font-size:15px}
   .side h4{color:var(--gold);margin:14px 0 6px;font-weight:normal;font-size:14px}
+  /* ── Mobile bottom sheet ── */
+  .mob-sheet{display:none;position:absolute;bottom:0;left:0;right:0;background:var(--panel);border-top:2px solid #5a3a22;border-radius:16px 16px 0 0;z-index:200;max-height:60vh;flex-direction:column;transition:transform .25s ease}
+  .mob-sheet-handle{width:36px;height:4px;background:#5a3a22;border-radius:2px;margin:10px auto 6px}
+  .mob-sheet-tabs{display:flex;border-bottom:1px solid #3a2515}
+  .mob-tab{flex:1;padding:10px;text-align:center;font-size:13px;color:var(--dim);cursor:pointer;border:none;background:none;font-family:inherit}
+  .mob-tab.active{color:var(--gold);border-bottom:2px solid var(--gold)}
+  .mob-sheet-body{padding:14px 16px;overflow-y:auto;flex:1}
+  .mob-sheet-body h3{color:var(--gold);margin-bottom:8px;font-weight:normal;font-size:15px}
+  .mob-sheet-body h4{color:var(--gold);margin:14px 0 6px;font-weight:normal;font-size:14px}
+  /* ── Mobile floating action button (open sheet) ── */
+  .mob-fab{display:none;position:absolute;bottom:76px;right:16px;width:48px;height:48px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold);font-size:22px;cursor:pointer;align-items:center;justify-content:center;z-index:190;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+  /* ── Shared components ── */
   .legend-row{display:flex;align-items:center;gap:8px;margin:4px 0}
   .dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex-shrink:0}
   .check-box{display:flex;gap:6px;margin-top:6px}
@@ -47,9 +63,9 @@
   #tooltip .tname{color:var(--gold);font-size:15px;margin-bottom:4px}
   #tooltip .tmeta{font-size:12px;color:var(--dim)}
   .zoom-ctl{position:absolute;bottom:16px;right:16px;display:flex;flex-direction:column;gap:4px}
-  .zoom-ctl button{width:32px;height:32px;font-size:18px;background:var(--panel);border:1px solid #5a3a22;color:var(--ink);cursor:pointer;border-radius:3px}
+  .zoom-ctl button{width:36px;height:36px;font-size:18px;background:var(--panel);border:1px solid #5a3a22;color:var(--ink);cursor:pointer;border-radius:6px}
   .zoom-ctl button:hover{border-color:var(--gold);color:var(--gold)}
-  #loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:1000}
+  #loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:1000;padding:24px}
   #loader h2{color:var(--gold);font-weight:normal}
   #loader button{background:transparent;border:2px solid var(--gold);color:var(--gold);padding:14px 28px;font-size:18px;font-family:inherit;cursor:pointer;border-radius:4px}
   #loader button:hover{background:rgba(255,210,122,.1)}
@@ -60,6 +76,18 @@
   .lbl{font-size:10px;fill:var(--ink);pointer-events:none}
   .result-ok{color:var(--found);margin-top:6px;padding:8px;background:rgba(111,217,111,.1);border-radius:3px;font-size:12px}
   .result-no{color:var(--pb);margin-top:6px;padding:8px;background:rgba(229,83,83,.1);border-radius:3px;font-size:12px}
+  /* ── Mobile breakpoint ── */
+  @media (max-width: 700px) {
+    h1{font-size:17px;letter-spacing:0.5px}
+    .sub{font-size:10px}
+    header{padding:8px 12px 4px}
+    .toolbar{display:none}
+    .mob-toolbar{display:flex}
+    .side{display:none}
+    .mob-sheet{display:flex}
+    .mob-fab{display:flex}
+    .zoom-ctl{bottom:72px}
+  }
 </style>
 </head>
 <body>
@@ -70,7 +98,7 @@
 <header>
   <h1>&#10013; Apostolic Succession Explorer &#10013;</h1>
   <div class="sub" id="sub">Loading…</div>
-  <div class="sub" style="margin-top:2px">Developed by The Rev. Robert Wm. Beazley</div>
+  <div class="sub" style="margin-top:2px">Developed by The Rev. Robert Wm. Beazley, Sr.</div>
 </header>
 <div class="toolbar">
   <label>Select bishop:</label>
@@ -84,6 +112,24 @@
   <button id="clr">Clear Highlight</button>
   <button id="rst">Reset View</button>
 </div>
+
+<!-- Mobile toolbar -->
+<div class="mob-toolbar">
+  <div class="mob-row">
+    <select id="msel"><option value="">&mdash; choose a bishop &mdash;</option></select>
+  </div>
+  <div class="mob-row">
+    <input type="text" id="msearch" placeholder="Or type name / number" list="bList2">
+    <datalist id="bList2"></datalist>
+    <button class="mob-gen" id="mgen">Generate</button>
+  </div>
+  <div class="mob-extra">
+    <label class="mob-chk-label"><input type="checkbox" id="mdesc"> Descendants</label>
+    <button class="mob-btn" id="mclr">Clear</button>
+    <button class="mob-btn" id="mrst">Reset View</button>
+  </div>
+</div>
+
 <div class="main">
   <div id="viz">
     <svg id="svg"></svg>
@@ -94,6 +140,8 @@
       <button id="zh">&#8962;</button>
     </div>
   </div>
+
+  <!-- Desktop side panel -->
   <div class="side">
     <h3>Legend</h3>
     <div class="legend-row"><span class="dot" style="background:var(--gold)"></span>Focus bishop</div>
@@ -113,6 +161,43 @@
     <h3 style="margin-top:18px">Bishop Details</h3>
     <div id="detail" style="color:var(--dim)">Click a bishop to see details.</div>
   </div>
+
+  <!-- Mobile bottom sheet -->
+  <div class="mob-sheet" id="mobSheet">
+    <div class="mob-sheet-handle" id="sheetHandle"></div>
+    <div class="mob-sheet-tabs">
+      <button class="mob-tab active" data-tab="detail">Bishop</button>
+      <button class="mob-tab" data-tab="stats">Statistics</button>
+      <button class="mob-tab" data-tab="legend">Legend</button>
+      <button class="mob-tab" data-tab="check">Check</button>
+    </div>
+    <div class="mob-sheet-body">
+      <div id="mob-detail-pane">
+        <div id="mobDetail" style="color:var(--dim)">Tap a bishop node to see details.</div>
+      </div>
+      <div id="mob-stats-pane" style="display:none">
+        <div class="stats" id="mobStats"><div style="color:var(--dim)">No map generated yet.</div></div>
+      </div>
+      <div id="mob-legend-pane" style="display:none">
+        <div class="legend-row"><span class="dot" style="background:var(--gold)"></span>Focus bishop</div>
+        <div class="legend-row"><span class="dot" style="background:var(--pb)"></span>Presiding Bishop</div>
+        <div class="legend-row"><span class="dot" style="background:var(--found)"></span>Founding (1784&ndash;1790)</div>
+        <div class="legend-row"><span class="dot" style="background:var(--fem)"></span>Female Bishop</div>
+        <div class="legend-row"><span class="dot" style="background:var(--dio)"></span>Diocesan</div>
+        <div class="legend-row"><span class="dot" style="background:var(--hi)"></span>Highlighted lineage</div>
+      </div>
+      <div id="mob-check-pane" style="display:none">
+        <div class="check-box">
+          <input type="text" id="mchk" placeholder="Name or bishop #">
+          <button id="mchkBtn">Check</button>
+        </div>
+        <div id="mobChkResult" style="color:var(--dim);font-size:12px;margin-top:8px">Generate a map, then type a name or # above.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile FAB to open sheet -->
+  <button class="mob-fab" id="mobFab" title="Info panel">&#9432;</button>
 </div>
 <script>
 const loader = document.getElementById('loader');
@@ -148,10 +233,13 @@ function init(d) {
   d.bishops.forEach(b => BY_NUM[b.num] = b);
   document.getElementById('sub').textContent = 'Data as of ' + d.scrapeDate + ' \u00B7 ' + d.bishops.length + ' bishops \u00B7 Most recent: #' + d.mostRecent.num + ' ' + d.mostRecent.name + ' (' + d.mostRecent.year + ', ' + d.mostRecent.diocese + ')';
   const sel = document.getElementById('sel'), dl = document.getElementById('bList');
+  const msel = document.getElementById('msel'), dl2 = document.getElementById('bList2');
   d.bishops.forEach(b => {
     const lbl = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
     const o = document.createElement('option'); o.value = b.num; o.textContent = lbl; sel.appendChild(o);
     const o2 = document.createElement('option'); o2.value = lbl; dl.appendChild(o2);
+    const mo = document.createElement('option'); mo.value = b.num; mo.textContent = lbl; msel.appendChild(mo);
+    const mo2 = document.createElement('option'); mo2.value = lbl; dl2.appendChild(mo2);
   });
   setupEvents();
 }
@@ -180,6 +268,62 @@ function setupEvents() {
   window.addEventListener('mousemove', e => { if (dragging) { VIEW.x=e.clientX-dx; VIEW.y=e.clientY-dy; applyTransform(); } });
   window.addEventListener('mouseup', () => dragging=false);
   SVG.addEventListener('wheel', e => { e.preventDefault(); const f = e.deltaY < 0 ? 1.1 : 0.9; zoom(f, e.offsetX, e.offsetY); }, {passive:false});
+
+  // Touch pan & pinch-zoom
+  let tc=0, tlx=0, tly=0, pinchD=0;
+  SVG.addEventListener('touchstart', e => {
+    if (e.touches.length===1) { tc=1; tlx=e.touches[0].clientX-VIEW.x; tly=e.touches[0].clientY-VIEW.y; }
+    else if (e.touches.length===2) {
+      tc=2;
+      const dx2=e.touches[0].clientX-e.touches[1].clientX, dy2=e.touches[0].clientY-e.touches[1].clientY;
+      pinchD=Math.hypot(dx2,dy2);
+    }
+    e.preventDefault();
+  }, {passive:false});
+  SVG.addEventListener('touchmove', e => {
+    if (tc===1) { VIEW.x=e.touches[0].clientX-tlx; VIEW.y=e.touches[0].clientY-tly; applyTransform(); }
+    else if (tc===2 && e.touches.length===2) {
+      const dx2=e.touches[0].clientX-e.touches[1].clientX, dy2=e.touches[0].clientY-e.touches[1].clientY;
+      const nd=Math.hypot(dx2,dy2); if (pinchD>0) { const f=nd/pinchD; zoom(f); } pinchD=nd;
+    }
+    e.preventDefault();
+  }, {passive:false});
+  SVG.addEventListener('touchend', e => { tc=e.touches.length; }, {passive:false});
+
+  // Mobile controls
+  const isMob = () => window.innerWidth <= 700;
+  document.getElementById('mgen').onclick = () => generateMob();
+  document.getElementById('mclr').onclick = () => { HIGHLIGHT=null; render(); document.getElementById('mobDetail').innerHTML='Tap a bishop node to see details.'; };
+  document.getElementById('mrst').onclick = () => centerView();
+  document.getElementById('mchkBtn').onclick = checkLineageMob;
+  document.getElementById('mchk').onkeyup = e => { if(e.key==='Enter') checkLineageMob(); };
+  document.getElementById('msel').onchange = e => {
+    const b = BY_NUM[e.target.value];
+    if (b) document.getElementById('msearch').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+  };
+  document.getElementById('msearch').addEventListener('change', e => {
+    const v = e.target.value.trim(); const m = v.match(/^#?(\S+)/);
+    if (m && BY_NUM[m[1]]) document.getElementById('msel').value = m[1];
+  });
+
+  // Bottom sheet tabs
+  document.querySelectorAll('.mob-tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const pane = tab.dataset.tab;
+      ['detail','stats','legend','check'].forEach(p => {
+        document.getElementById('mob-'+p+'-pane').style.display = p===pane ? '' : 'none';
+      });
+    };
+  });
+
+  // FAB toggles sheet open/close
+  const sheet = document.getElementById('mobSheet');
+  document.getElementById('mobFab').onclick = () => {
+    sheet.style.display = sheet.style.display === 'none' ? 'flex' : 'none';
+  };
+  // Sheet starts open after generate
 }
 
 function zoom(f, cx, cy) {
@@ -236,6 +380,16 @@ function generate() {
   document.getElementById('chkResult').textContent = 'Ready. Type a name or # above to check.';
   document.getElementById('chkResult').className = '';
   document.getElementById('chkResult').style.color = 'var(--dim)';
+  // Open mobile sheet and show Bishop tab
+  const sheet = document.getElementById('mobSheet');
+  if (sheet) { sheet.style.display = 'flex'; }
+  document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+  const detailTab = document.querySelector('.mob-tab[data-tab="detail"]');
+  if (detailTab) { detailTab.classList.add('active'); }
+  ['detail','stats','legend','check'].forEach(p => {
+    const el = document.getElementById('mob-'+p+'-pane');
+    if (el) el.style.display = p==='detail' ? '' : 'none';
+  });
 }
 
 function computeLayout() {
@@ -307,7 +461,8 @@ function render() {
       g.appendChild(h);
     }
     const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('r', n.num===FOCUS.num ? 10 : (hlNodes && hlNodes.has(n.num) ? 7 : 5));
+    const mobR = window.innerWidth <= 700;
+    c.setAttribute('r', n.num===FOCUS.num ? (mobR?14:10) : (hlNodes && hlNodes.has(n.num) ? (mobR?10:7) : (mobR?8:5)));
     c.setAttribute('fill', nodeColor(n));
     const oc = outlineColor(n);
     c.setAttribute('stroke', oc);
@@ -315,15 +470,20 @@ function render() {
     c.setAttribute('opacity', dimmed ? 0.08 : 1);
     c.classList.add('node');
     c.addEventListener('click', ev => { ev.stopPropagation(); pinNode(n); });
-    c.addEventListener('mousemove', ev => showTooltip(ev, n));
-    c.addEventListener('mouseleave', hideTooltip);
+    if (window.innerWidth > 700) {
+      c.addEventListener('mousemove', ev => showTooltip(ev, n));
+      c.addEventListener('mouseleave', hideTooltip);
+    }
     g.appendChild(c);
-    if (n.num === FOCUS.num || (hlNodes && hlNodes.has(n.num))) {
+    const mob = window.innerWidth <= 700;
+    if (n.num === FOCUS.num || (hlNodes && hlNodes.has(n.num)) || mob) {
       const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-      t.setAttribute('x', 12); t.setAttribute('y', 4);
+      t.setAttribute('x', mob ? 8 : 12); t.setAttribute('y', mob ? 3 : 4);
       t.classList.add('lbl');
-      t.setAttribute('fill', n.num===FOCUS.num ? '#ffd27a' : '#5bd9ff');
-      t.textContent = '#' + n.num + ' ' + n.name;
+      if (mob) { t.setAttribute('font-size','8'); }
+      t.setAttribute('fill', n.num===FOCUS.num ? '#ffd27a' : (hlNodes && hlNodes.has(n.num) ? '#5bd9ff' : '#c8b89a'));
+      // On mobile show short label; on desktop show full name only for focus/highlight
+      t.textContent = mob ? (n.num===FOCUS.num ? n.name : '#' + n.num) : '#' + n.num + ' ' + n.name;
       g.appendChild(t);
     }
     G.appendChild(g);
@@ -413,25 +573,41 @@ function showDetail(n) {
   } else if (yr >= 1784 && yr <= 1790) {
     consecHtml = '<h4>Consecrators</h4><div class="consec-item" style="border-left-color:#5a3a22;color:#8a7660">English/Scottish bishops (outside ECUSA)</div>';
   }
-  document.getElementById('detail').innerHTML =
+  const detailHtml =
     '<div style="color:#ffd27a;font-size:16px;margin-bottom:4px">' + n.name + '</div>' +
     '<div style="color:#8a7660;font-size:12px;margin-bottom:8px">Bishop #' + n.num + (tags.length ? ' \u00B7 ' + tags.join(' ') : '') + '</div>' +
     '<div><b>Consecrated:</b> ' + (n.year||'?') + '</div>' +
     '<div><b>Diocese:</b> ' + (n.diocese||'?') + '</div>' +
     consecHtml;
+  document.getElementById('detail').innerHTML = detailHtml;
+  const md = document.getElementById('mobDetail'); if (md) md.innerHTML = detailHtml;
+  // On mobile, switch sheet to detail tab
+  if (window.innerWidth <= 700) {
+    document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+    const dt = document.querySelector('.mob-tab[data-tab="detail"]'); if (dt) dt.classList.add('active');
+    ['detail','stats','legend','check'].forEach(p => {
+      const el = document.getElementById('mob-'+p+'-pane'); if (el) el.style.display = p==='detail'?'':'none';
+    });
+    const sheet = document.getElementById('mobSheet'); if (sheet) sheet.style.display = 'flex';
+  }
 }
 
 function updateStats() {
   const yrs = NODES.map(n => parseInt(n.year)).filter(y => !isNaN(y));
-  const mode = document.getElementById('desc').checked ? 'Ancestors + Descendants' : 'Ancestors only';
+  const descEl = document.getElementById('desc') || document.getElementById('mdesc');
+  const mode = (document.getElementById('desc') && document.getElementById('desc').checked) ||
+               (document.getElementById('mdesc') && document.getElementById('mdesc').checked)
+               ? 'Ancestors + Descendants' : 'Ancestors only';
   const min = yrs.length ? Math.min.apply(null,yrs) : '?';
   const max = yrs.length ? Math.max.apply(null,yrs) : '?';
-  document.getElementById('stats').innerHTML =
+  const html =
     '<div><span>Focus Bishop</span><span>#' + FOCUS.num + ' ' + FOCUS.name + '</span></div>' +
     '<div><span>Total in Tree</span><span>' + NODES.length + '</span></div>' +
     '<div><span>Total Edges</span><span>' + EDGES.length + '</span></div>' +
     '<div><span>Span of Years</span><span>' + min + '\u2013' + max + '</span></div>' +
     '<div><span>Mode</span><span>' + mode + '</span></div>';
+  document.getElementById('stats').innerHTML = html;
+  const ms = document.getElementById('mobStats'); if (ms) ms.innerHTML = html;
 }
 
 function checkLineage() {
@@ -466,6 +642,33 @@ function checkLineage() {
     res.innerHTML = '<b>No.</b> #' + match.num + ' ' + match.name + ' is NOT in the current lineage' + (document.getElementById('desc').checked ? '.' : '. Try enabling "Include descendants" and regenerating.');
   }
 }
+
+function generateMob() {
+  const num = document.getElementById('msel').value ||
+    (document.getElementById('msearch').value.replace(/^#?/,'').split(/\s/)[0]);
+  // sync to desktop controls then call generate
+  if (num && BY_NUM[num]) {
+    document.getElementById('sel').value = num;
+    const b = BY_NUM[num];
+    document.getElementById('search').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+  }
+  // sync descendants checkbox
+  document.getElementById('desc').checked = document.getElementById('mdesc').checked;
+  generate();
+}
+
+function checkLineageMob() {
+  // sync chk field and call checkLineage
+  document.getElementById('chk').value = document.getElementById('mchk').value;
+  checkLineage();
+  // copy result back to mobile
+  setTimeout(() => {
+    const src = document.getElementById('chkResult');
+    const dst = document.getElementById('mobChkResult');
+    if (dst && src) { dst.textContent = src.textContent; dst.className = src.className; }
+  }, 50);
+}
+
 </script>
 </body>
 </html>
