@@ -520,35 +520,38 @@ function render() {
     }
     g.appendChild(c);
     const mob = window.innerWidth <= 700;
-    // Show labels on mobile for all; on desktop for focus + highlighted only
-    if (n.num === FOCUS.num || (hlNodes && hlNodes.has(n.num)) || mob) {
+    const isFocus = n.num === FOCUS.num;
+    const isHL = hlNodes && hlNodes.has(n.num);
+    // Desktop: show label for ALL nodes (not just focus/highlighted)
+    // Mobile: show label for all nodes
+    {
       const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-      const isFocus = n.num === FOCUS.num;
-      const isHL = hlNodes && hlNodes.has(n.num);
       t.setAttribute('x', mob ? 10 : 13);
       t.setAttribute('y', mob ? 4 : 4);
       t.classList.add('lbl');
       if (mob) t.setAttribute('font-size', isFocus ? '10' : '8');
       t.setAttribute('fill', isFocus ? '#ffd27a' : (isHL ? '#5bd9ff' : '#c8b89a'));
+
+      // Helper: get last name (last space-separated token)
+      const parts = n.name.split(' ');
+      const lastName = parts[parts.length - 1];
+      const firstInitial = parts[0][0];
+
       if (mob) {
-        // Mobile: focus gets full name; others get first name if short, else #num
+        // Mobile: focus = full name; others = last name if <=10 chars, else #num
         if (isFocus) {
           t.textContent = n.name;
         } else {
-          const parts = n.name.split(' ');
-          const firstName = parts[0];
-          // If first name is short enough (<=10 chars) show it, else show #num
-          t.textContent = firstName.length <= 10 ? firstName : '#' + n.num;
+          t.textContent = lastName.length <= 10 ? lastName : '#' + n.num;
         }
       } else {
-        // Desktop: show full name; if very long (>22 chars) abbreviate to First L.
-        if (n.name.length <= 22) {
+        // Desktop: full name if <=22 chars; else abbreviate to "F. Last"
+        if (isFocus) {
+          t.textContent = n.name;
+        } else if (n.name.length <= 22) {
           t.textContent = n.name;
         } else {
-          const parts = n.name.split(' ');
-          const last = parts[parts.length-1];
-          const first = parts[0];
-          t.textContent = first + ' ' + (last.length > 1 ? last[0]+'.' : last);
+          t.textContent = firstInitial + '. ' + lastName;
         }
       }
       g.appendChild(t);
