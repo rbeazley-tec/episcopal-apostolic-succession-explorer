@@ -767,20 +767,44 @@ function checkLineageMob() {
 
 // ── Mobile header auto-hide ──
 let _hdrTimer = null;
+let _hdrFrozen = false;
+
 function startHeaderHideTimer() {
   clearTimeout(_hdrTimer);
+  if (_hdrFrozen) return;
   _hdrTimer = setTimeout(hideHeader, 4000);
 }
+function freezeHeader() {
+  _hdrFrozen = true;
+  clearTimeout(_hdrTimer);
+  showHeaderNow();
+}
+function unfreezeHeader() {
+  _hdrFrozen = false;
+  startHeaderHideTimer();
+}
+function showHeaderNow() {
+  document.querySelector('header').classList.remove('hdr-hidden');
+  document.querySelector('.mob-toolbar') && document.querySelector('.mob-toolbar').classList.remove('hdr-hidden');
+}
 function hideHeader() {
-  if (window.innerWidth > 700) return;
+  if (window.innerWidth > 700 || _hdrFrozen) return;
   document.querySelector('header').classList.add('hdr-hidden');
   document.querySelector('.mob-toolbar') && document.querySelector('.mob-toolbar').classList.add('hdr-hidden');
 }
 function showHeader() {
-  document.querySelector('header').classList.remove('hdr-hidden');
-  document.querySelector('.mob-toolbar') && document.querySelector('.mob-toolbar').classList.remove('hdr-hidden');
+  showHeaderNow();
   startHeaderHideTimer();
 }
+
+// Freeze header while any mobile input/select is focused; unfreeze on blur
+['msel','msearch','mchk'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('focus', freezeHeader);
+  el.addEventListener('blur',  unfreezeHeader);
+  el.addEventListener('input', () => { if (_hdrFrozen) showHeaderNow(); });
+});
 // Tap top ~60px of canvas to restore header
 document.getElementById('svg').addEventListener('touchstart', e => {
   if (window.innerWidth > 700) return;
