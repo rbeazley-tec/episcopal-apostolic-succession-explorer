@@ -7,7 +7,8 @@
 <style>  :root{--bg:#1a0f08;--panel:#241610;--ink:#f4e4c1;--gold:#ffd27a;--dim:#8a7660;--pb:#e55353;--found:#6fd96f;--fem:#c08bff;--dio:#6ab6ff;--hi:#5bd9ff;}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);font-family:Georgia,serif;overflow:hidden;height:100vh;height:100dvh;display:flex;flex-direction:column}
-  header{padding:10px 16px 6px;text-align:center;border-bottom:1px solid #3a2515}
+  header{padding:10px 16px 6px;text-align:center;border-bottom:1px solid #3a2515;transition:transform .3s ease,opacity .3s ease}
+  header.hdr-hidden{transform:translateY(-100%);opacity:0;pointer-events:none}
   h1{color:var(--gold);font-size:22px;font-weight:normal;letter-spacing:1px}
   .sub{color:var(--dim);font-size:12px;margin-top:2px}
   /* ── Desktop toolbar ── */
@@ -19,7 +20,8 @@
   .toolbar button:hover,.toolbar button.active{background:#3a2518;border-color:var(--gold);color:var(--gold)}
   .spacer{flex:1}
   /* ── Mobile toolbar ── */
-  .mob-toolbar{display:none;flex-direction:column;gap:8px;padding:10px 12px;border-bottom:1px solid #3a2515;background:var(--panel)}
+  .mob-toolbar{display:none;flex-direction:column;gap:8px;padding:10px 12px;border-bottom:1px solid #3a2515;background:var(--panel);transition:transform .3s ease,opacity .3s ease}
+  .mob-toolbar.hdr-hidden{transform:translateY(-200%);opacity:0;pointer-events:none;margin-top:-200px}
   .mob-row{display:flex;gap:8px;align-items:center}
   .mob-toolbar select,.mob-toolbar input[type=text]{flex:1;background:#2a1a11;color:var(--ink);border:1px solid #5a3a22;padding:10px 12px;font-family:inherit;font-size:15px;border-radius:6px;cursor:pointer;-webkit-appearance:none}
   .mob-toolbar .mob-gen{background:#3a2518;border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-family:inherit;font-size:15px;border-radius:6px;cursor:pointer;white-space:nowrap}
@@ -37,7 +39,8 @@
   .side h3{color:var(--gold);margin-bottom:8px;font-weight:normal;font-size:15px}
   .side h4{color:var(--gold);margin:14px 0 6px;font-weight:normal;font-size:14px}
   /* ── Mobile bottom sheet ── */
-  .mob-sheet{display:none;position:absolute;bottom:0;left:0;right:0;background:var(--panel);border-top:2px solid #5a3a22;border-radius:16px 16px 0 0;z-index:200;max-height:60vh;flex-direction:column;transition:transform .25s ease}
+  .mob-sheet{display:none;position:absolute;bottom:0;left:0;right:0;background:var(--panel);border-top:2px solid #5a3a22;border-radius:16px 16px 0 0;z-index:200;max-height:60vh;flex-direction:column;transition:transform .3s ease}
+  .mob-sheet.sheet-hidden{transform:translateY(100%)}
   .mob-sheet-handle{width:36px;height:4px;background:#5a3a22;border-radius:2px;margin:10px auto 6px}
   .mob-sheet-tabs{display:flex;border-bottom:1px solid #3a2515}
   .mob-tab{flex:1;padding:10px;text-align:center;font-size:13px;color:var(--dim);cursor:pointer;border:none;background:none;font-family:inherit}
@@ -269,11 +272,14 @@ function setupEvents() {
   window.addEventListener('mouseup', () => dragging=false);
   SVG.addEventListener('wheel', e => { e.preventDefault(); const f = e.deltaY < 0 ? 1.1 : 0.9; zoom(f, e.offsetX, e.offsetY); }, {passive:false});
 
-  // Touch pan & pinch-zoom
-  let tc=0, tlx=0, tly=0, pinchD=0;
+  // Touch pan, pinch-zoom, and tap-to-select
+  let tc=0, tlx=0, tly=0, pinchD=0, tStartX=0, tStartY=0, tMoved=false;
   SVG.addEventListener('touchstart', e => {
-    if (e.touches.length===1) { tc=1; tlx=e.touches[0].clientX-VIEW.x; tly=e.touches[0].clientY-VIEW.y; }
-    else if (e.touches.length===2) {
+    if (e.touches.length===1) {
+      tc=1;
+      tStartX=e.touches[0].clientX; tStartY=e.touches[0].clientY; tMoved=false;
+      tlx=e.touches[0].clientX-VIEW.x; tly=e.touches[0].clientY-VIEW.y;
+    } else if (e.touches.length===2) {
       tc=2;
       const dx2=e.touches[0].clientX-e.touches[1].clientX, dy2=e.touches[0].clientY-e.touches[1].clientY;
       pinchD=Math.hypot(dx2,dy2);
@@ -281,14 +287,32 @@ function setupEvents() {
     e.preventDefault();
   }, {passive:false});
   SVG.addEventListener('touchmove', e => {
-    if (tc===1) { VIEW.x=e.touches[0].clientX-tlx; VIEW.y=e.touches[0].clientY-tly; applyTransform(); }
-    else if (tc===2 && e.touches.length===2) {
+    if (tc===1) {
+      const moved = Math.hypot(e.touches[0].clientX-tStartX, e.touches[0].clientY-tStartY);
+      if (moved > 5) tMoved=true;
+      VIEW.x=e.touches[0].clientX-tlx; VIEW.y=e.touches[0].clientY-tly; applyTransform();
+    } else if (tc===2 && e.touches.length===2) {
       const dx2=e.touches[0].clientX-e.touches[1].clientX, dy2=e.touches[0].clientY-e.touches[1].clientY;
       const nd=Math.hypot(dx2,dy2); if (pinchD>0) { const f=nd/pinchD; zoom(f); } pinchD=nd;
     }
     e.preventDefault();
   }, {passive:false});
-  SVG.addEventListener('touchend', e => { tc=e.touches.length; }, {passive:false});
+  SVG.addEventListener('touchend', e => {
+    if (tc===1 && !tMoved) {
+      // Tap — find if a node was hit
+      const svgRect = SVG.getBoundingClientRect();
+      const cx = (tStartX - svgRect.left - VIEW.x) / VIEW.k;
+      const cy = (tStartY - svgRect.top  - VIEW.y) / VIEW.k;
+      const hit = NODES.find(n => {
+        const pos = _lastPos && _lastPos[n.num];
+        if (!pos) return false;
+        const r = n.num===FOCUS.num ? 14 : 12;
+        return Math.hypot(cx-pos.x, cy-pos.y) <= r;
+      });
+      if (hit) pinNode(hit);
+    }
+    tc=e.touches.length;
+  }, {passive:false});
 
   // Mobile controls
   const isMob = () => window.innerWidth <= 700;
@@ -318,12 +342,28 @@ function setupEvents() {
     };
   });
 
-  // FAB toggles sheet open/close
+  // Sheet handle / tab-bar tap dismisses sheet; tapping canvas re-opens it
   const sheet = document.getElementById('mobSheet');
+  const sheetHandle = document.getElementById('sheetHandle');
+  const sheetTabs = document.querySelector('.mob-sheet-tabs');
+
+  function dismissSheet() { sheet.classList.add('sheet-hidden'); }
+  function showSheet()    { sheet.classList.remove('sheet-hidden'); }
+
+  sheetHandle.addEventListener('click', dismissSheet);
+  // Also allow tapping the tab bar area (not a tab button itself) to dismiss
+  sheetTabs.addEventListener('click', e => { if (!e.target.classList.contains('mob-tab')) dismissSheet(); });
+
+  // FAB also toggles
   document.getElementById('mobFab').onclick = () => {
-    sheet.style.display = sheet.style.display === 'none' ? 'flex' : 'none';
+    if (sheet.classList.contains('sheet-hidden')) showSheet();
+    else dismissSheet();
   };
-  // Sheet starts open after generate
+
+  // Tap on canvas (not a node) re-opens sheet
+  SVG.addEventListener('click', e => {
+    if (!e.target.classList.contains('node') && window.innerWidth <= 700 && FOCUS) showSheet();
+  });
 }
 
 function zoom(f, cx, cy) {
@@ -380,9 +420,11 @@ function generate() {
   document.getElementById('chkResult').textContent = 'Ready. Type a name or # above to check.';
   document.getElementById('chkResult').className = '';
   document.getElementById('chkResult').style.color = 'var(--dim)';
-  // Open mobile sheet and show Bishop tab
+  // Auto-hide header on mobile after 4 seconds
+  if (window.innerWidth <= 700) { startHeaderHideTimer(); }
+  // Open mobile sheet on mobile only
   const sheet = document.getElementById('mobSheet');
-  if (sheet) { sheet.style.display = 'flex'; }
+  if (sheet && window.innerWidth <= 700) { sheet.style.display = 'flex'; sheet.classList.remove('sheet-hidden'); }
   document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
   const detailTab = document.querySelector('.mob-tab[data-tab="detail"]');
   if (detailTab) { detailTab.classList.add('active'); }
@@ -420,8 +462,10 @@ function computeLayout() {
   return pos;
 }
 
+let _lastPos = null;
 function render() {
   const pos = computeLayout();
+  _lastPos = pos;
   const rect = SVG.getBoundingClientRect();
   if (VIEW.x === 0 && VIEW.y === 0 && VIEW.k === 1) {
     VIEW.x = rect.width/2; VIEW.y = rect.height/2;
@@ -476,14 +520,37 @@ function render() {
     }
     g.appendChild(c);
     const mob = window.innerWidth <= 700;
+    // Show labels on mobile for all; on desktop for focus + highlighted only
     if (n.num === FOCUS.num || (hlNodes && hlNodes.has(n.num)) || mob) {
       const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-      t.setAttribute('x', mob ? 8 : 12); t.setAttribute('y', mob ? 3 : 4);
+      const isFocus = n.num === FOCUS.num;
+      const isHL = hlNodes && hlNodes.has(n.num);
+      t.setAttribute('x', mob ? 10 : 13);
+      t.setAttribute('y', mob ? 4 : 4);
       t.classList.add('lbl');
-      if (mob) { t.setAttribute('font-size','8'); }
-      t.setAttribute('fill', n.num===FOCUS.num ? '#ffd27a' : (hlNodes && hlNodes.has(n.num) ? '#5bd9ff' : '#c8b89a'));
-      // On mobile show short label; on desktop show full name only for focus/highlight
-      t.textContent = mob ? (n.num===FOCUS.num ? n.name : '#' + n.num) : '#' + n.num + ' ' + n.name;
+      if (mob) t.setAttribute('font-size', isFocus ? '10' : '8');
+      t.setAttribute('fill', isFocus ? '#ffd27a' : (isHL ? '#5bd9ff' : '#c8b89a'));
+      if (mob) {
+        // Mobile: focus gets full name; others get first name if short, else #num
+        if (isFocus) {
+          t.textContent = n.name;
+        } else {
+          const parts = n.name.split(' ');
+          const firstName = parts[0];
+          // If first name is short enough (<=10 chars) show it, else show #num
+          t.textContent = firstName.length <= 10 ? firstName : '#' + n.num;
+        }
+      } else {
+        // Desktop: show full name; if very long (>22 chars) abbreviate to First L.
+        if (n.name.length <= 22) {
+          t.textContent = n.name;
+        } else {
+          const parts = n.name.split(' ');
+          const last = parts[parts.length-1];
+          const first = parts[0];
+          t.textContent = first + ' ' + (last.length > 1 ? last[0]+'.' : last);
+        }
+      }
       g.appendChild(t);
     }
     G.appendChild(g);
@@ -588,7 +655,7 @@ function showDetail(n) {
     ['detail','stats','legend','check'].forEach(p => {
       const el = document.getElementById('mob-'+p+'-pane'); if (el) el.style.display = p==='detail'?'':'none';
     });
-    const sheet = document.getElementById('mobSheet'); if (sheet) sheet.style.display = 'flex';
+    const sheet = document.getElementById('mobSheet'); if (sheet && window.innerWidth <= 700) { sheet.style.display = 'flex'; sheet.classList.remove('sheet-hidden'); }
   }
 }
 
@@ -668,6 +735,34 @@ function checkLineageMob() {
     if (dst && src) { dst.textContent = src.textContent; dst.className = src.className; }
   }, 50);
 }
+
+
+// ── Mobile header auto-hide ──
+let _hdrTimer = null;
+function startHeaderHideTimer() {
+  clearTimeout(_hdrTimer);
+  _hdrTimer = setTimeout(hideHeader, 4000);
+}
+function hideHeader() {
+  if (window.innerWidth > 700) return;
+  document.querySelector('header').classList.add('hdr-hidden');
+  document.querySelector('.mob-toolbar') && document.querySelector('.mob-toolbar').classList.add('hdr-hidden');
+}
+function showHeader() {
+  document.querySelector('header').classList.remove('hdr-hidden');
+  document.querySelector('.mob-toolbar') && document.querySelector('.mob-toolbar').classList.remove('hdr-hidden');
+  startHeaderHideTimer();
+}
+// Tap top ~60px of canvas to restore header
+document.getElementById('svg').addEventListener('touchstart', e => {
+  if (window.innerWidth > 700) return;
+  const svgRect = document.getElementById('svg').getBoundingClientRect();
+  const tapY = e.touches[0].clientY - svgRect.top;
+  if (tapY < 60 && document.querySelector('header').classList.contains('hdr-hidden')) {
+    showHeader();
+    e.preventDefault();
+  }
+}, {passive:false, capture:true});
 
 </script>
 </body>
