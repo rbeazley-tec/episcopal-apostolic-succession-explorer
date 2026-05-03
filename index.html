@@ -583,6 +583,802 @@ function outlineColor(n) {
 }
 
 function pinNode(n) {
+  if (n.num === FOCUS.num) { showDetail(n); HIGHLIGHT = null; render(); return; }
+  const path = findPath(n.num, FOCUS.num);
+  showDetail(n, path || null);
+  if (!path) { HIGHLIGHT = null; render(); return; }
+  const nodes = new Set(path);
+  const edges = new Set();
+  for (let i=0; i<path.length-1; i++) {
+    const a=path[i], b=path[i+1];
+    if (EDGES.some(arr => arr[0]===a && arr[1]===b)) edges.add(a+'|'+b);
+    else if (EDGES.some(arr => arr[0]===b && arr[1]===a)) edges.add(b+'|'+a);
+  }
+  HIGHLIGHT = {nodes, edges};
+  render();
+}
+
+function findPath(fromNum, toNum) {
+  const adj = {};
+  EDGES.forEach(arr => {
+    const a=arr[0], b=arr[1];
+    (adj[a]=adj[a]||[]).push(b);
+    (adj[b]=adj[b]||[]).push(a);
+  });
+  const q = [[fromNum, [fromNum]]];
+  const seen = new Set([fromNum]);
+  while (q.length) {
+    const item = q.shift();
+    const n = item[0], path = item[1];
+    if (n === toNum) return path;
+    (adj[n]||[]).forEach(x => { if (!seen.has(x)) { seen.add(x); q.push([x, path.concat(x)]); } });
+  }
+  return null;
+}
+
+const tt = document.getElementById('tooltip');
+function showTooltip(ev, n) {
+  const tags = [];
+  const yr = parseInt(n.year);
+  if (yr >= 1784 && yr <= 1790) tags.push('<span class="detail-tag tag-f">Founding Bishop</span>');
+  if (n.pb) tags.push('<span class="detail-tag tag-pb">Presiding Bishop</span>');
+  if (n.female) tags.push('<span class="detail-tag tag-fem">Female Bishop</span>');
+  tt.innerHTML = '<div class="tname">#' + n.num + ' ' + n.name + '</div>' +
+    '<div style="font-size:13px;margin:4px 0">Consecrated ' + (n.year||'?') + (tags.length ? ' \u00B7 ' + tags.join(' ') : '') + '</div>' +
+    '<div class="tmeta">' + (n.diocese||'') + '</div>';
+  tt.style.display = 'block';
+  const r = SVG.getBoundingClientRect();
+  let x = ev.clientX - r.left + 14, y = ev.clientY - r.top + 8;
+  if (x + 280 > r.width) x = ev.clientX - r.left - 290;
+  tt.style.left = x+'px'; tt.style.top = y+'px';
+}
+function hideTooltip() { tt.style.display = 'none'; }
+
+function showDetail(n, lineagePath) {
+  const tags = [];
+  const yr = parseInt(n.year);
+  if (yr >= 1784 && yr <= 1790) tags.push('<span class="detail-tag tag-f">Founding Bishop</span>');
+  if (n.pb) tags.push('<span class="detail-tag tag-pb">Presiding Bishop</span>');
+  if (n.female) tags.push('<span class="detail-tag tag-fem">Female Bishop</span>');
+  let consecHtml = '';
+  if (lineagePath && lineagePath.length > 1) {
+    // Show lineage path to focus bishop instead of consecrators
+    consecHtml = '<h4>Lineage to ' + FOCUS.name + '</h4>';
+    lineagePath.forEach((num, i) => {
+      const b = BY_NUM[num];
+      if (!b) return;
+      const SUFFIXES = new Set(['jr','jr.','sr','sr.','ii','iii','iv','v','vi']);
+      const parts = b.name.split(' ');
+      let lastIdx = parts.length - 1;
+      while (lastIdx > 0 && SUFFIXES.has(parts[lastIdx].toLowerCase())) lastIdx--;
+      const lastName = parts[lastIdx];
+      const suffix = lastIdx < parts.length - 1 ? ' ' + parts.slice(lastIdx+1).join(' ') : '';
+      const shortName = parts[0][0] + '. ' + lastName + suffix;
+      const isEndpoint = i === 0 || i === lineagePath.length - 1;
+      consecHtml += '<div class="consec-item" style="' + (isEndpoint ? 'border-left-color:var(--gold)' : 'border-left-color:var(--hi)') + '">' +
+        '#' + b.num + ' ' + (isEndpoint ? b.name : shortName) + (b.year ? ' (' + b.year + ')' : '') + '</div>';
+    });
+  } else if (n.consecrators && n.consecrators.length) {
+    consecHtml = '<h4>Consecrators</h4>';
+    n.consecrators.forEach(cn => {
+      const cb = BY_NUM[cn];
+      if (cb) consecHtml += '<div class="consec-item">#' + cb.num + ' ' + cb.name + (cb.year ? ' (' + cb.year + ')' : '') + '</div>';
+      else consecHtml += '<div class="consec-item" style="border-left-color:#5a3a22;color:#8a7660">#' + cn + ' (not in ECUSA dataset)</div>';
+    });
+  } else if (yr >= 1784 && yr <= 1790) {
+    consecHtml = '<h4>Consecrators</h4><div class="consec-item" style="border-left-color:#5a3a22;color:#8a7660">English/Scottish bishops (outside ECUSA)</div>';
+  }
+  const detailHtml =
+    '<div style="color:#ffd27a;font-size:16px;margin-bottom:4px">' + n.name + '</div>' +
+    '<div style="color:#8a7660;font-size:12px;margin-bottom:8px">Bishop #' + n.num + (tags.length ? ' \u00B7 ' + tags.join(' ') : '') + '</div>' +
+    '<div><b>Consecrated:</b> ' + (n.year||'?') + '</div>' +
+    '<div><b>Diocese:</b> ' + (n.diocese||'?') + '</div>' +
+    consecHtml;
+  document.getElementById('detail').innerHTML = detailHtml;
+  const md = document.getElementById('mobDetail'); if (md) md.innerHTML = detailHtml;
+  // On mobile, switch sheet to detail tab
+  if (window.innerWidth <= 700) {
+    document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+    const dt = document.querySelector('.mob-tab[data-tab="detail"]'); if (dt) dt.classList.add('active');
+    ['detail','stats','legend','check'].forEach(p => {
+      const el = document.getElementById('mob-'+p+'-pane'); if (el) el.style.display = p==='detail'?'':'none';
+    });
+    const sheet = document.getElementById('mobSheet'); if (sheet && window.innerWidth <= 700) { sheet.style.display = 'flex'; sheet.classList.remove('sheet-hidden'); }
+  }
+}
+
+function updateStats() {
+  const yrs = NODES.map(n => parseInt(n.year)).filter(y => !isNaN(y));
+  const descEl = document.getElementById('desc') || document.getElementById('mdesc');
+  const mode = (document.getElementById('desc') && document.getElementById('desc').checked) ||
+               (document.getElementById('mdesc') && document.getElementById('mdesc').checked)
+               ? 'Ancestors + Descendants' : 'Ancestors only';
+  const min = yrs.length ? Math.min.apply(null,yrs) : '?';
+  const max = yrs.length ? Math.max.apply(null,yrs) : '?';
+  const html =
+    '<div><span>Focus Bishop</span><span>#' + FOCUS.num + ' ' + FOCUS.name + '</span></div>' +
+    '<div><span>Total in Tree</span><span>' + NODES.length + '</span></div>' +
+    '<div><span>Total Edges</span><span>' + EDGES.length + '</span></div>' +
+    '<div><span>Span of Years</span><span>' + min + '\u2013' + max + '</span></div>' +
+    '<div><span>Mode</span><span>' + mode + '</span></div>';
+  document.getElementById('stats').innerHTML = html;
+  const ms = document.getElementById('mobStats'); if (ms) ms.innerHTML = html;
+}
+
+function checkLineage() {
+  if (!FOCUS) { document.getElementById('chkResult').textContent = 'Generate a map first.'; return; }
+  const q = document.getElementById('chk').value.trim();
+  if (!q) return;
+  const nq = q.replace(/^#/, '').toLowerCase();
+  let match = null;
+  if (BY_NUM[nq]) match = BY_NUM[nq];
+  if (!match) {
+    const inTree = NODES.find(n => n.name.toLowerCase().includes(nq));
+    if (inTree) match = inTree;
+  }
+  if (!match) {
+    match = DATA.bishops.find(n => n.name.toLowerCase().includes(nq));
+  }
+  const res = document.getElementById('chkResult');
+  if (!match) {
+    res.className = 'result-no';
+    res.textContent = 'No bishop matches "' + q + '".';
+    return;
+  }
+  const inTreeNode = NODES.find(n => n.num === match.num);
+  if (inTreeNode) {
+    const path = findPath(match.num, FOCUS.num);
+    const relation = path && match.num !== FOCUS.num ? (path.length - 1) + ' steps from focus' : 'is the focus bishop';
+    res.className = 'result-ok';
+    res.innerHTML = '<b>Yes!</b> #' + match.num + ' ' + match.name + ' IS in this lineage (' + relation + '). Highlighting...';
+    pinNode(match);
+  } else {
+    res.className = 'result-no';
+    res.innerHTML = '<b>No.</b> #' + match.num + ' ' + match.name + ' is NOT in the current lineage' + (document.getElementById('desc').checked ? '.' : '. Try enabling "Include descendants" and regenerating.');
+  }
+}
+
+function generateMob() {
+  const num = document.getElementById('msel').value ||
+    (document.getElementById('msearch').value.replace(/^#?/,'').split(/\s/)[0]);
+  // sync to desktop controls then call generate
+  if (num && BY_NUM[num]) {
+    document.getElementById('sel').value = num;
+    const b = BY_NUM[num];
+    document.getElementById('search').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+  }
+  // sync descendants checkbox
+  document.getElementById('desc').checked = document.getElementById('mdesc').checked;
+  generate();
+}
+
+function checkLineageMob() {
+  // sync chk field and call checkLineage
+  document.getElementById('chk').value = document.getElementById('mchk').value;
+  checkLineage();
+  // copy result back to mobile
+  setTimeout(() => {
+    const src = document.getElementById('chkResult');
+    const dst = document.getElementById('mobChkResult');
+    if (dst && src) { dst.textContent = src.textContent; dst.className = src.className; }
+  }, 50);
+}
+
+
+// ── Mobile header auto-hide ──
+let _hdrTimer = null;
+function startHeaderHideTimer() {
+  clearTimeout(_hdrTimer);
+  _hdrTimer = setTimeout(hideHeader, 4000);
+}
+function hideHeader() {
+  if (window.innerWidth > 700) return;
+  document.querySelector('header').classList.add('hdr-hidden');
+  document.querySelector('.mob-toolbar') && document.querySelector('.mob-toolbar').classList.add('hdr-hidden');
+}
+function showHeader() {
+  document.querySelector('header').classList.remove('hdr-hidden');
+  document.querySelector('.mob-toolbar') && document.querySelector('.mob-toolbar').classList.remove('hdr-hidden');
+  startHeaderHideTimer();
+}
+// Tap top ~60px of canvas to restore header
+document.getElementById('svg').addEventListener('touchstart', e => {
+  if (window.innerWidth > 700) return;
+  const svgRect = document.getElementById('svg').getBoundingClientRect();
+  const tapY = e.touches[0].clientY - svgRect.top;
+  if (tapY < 60 && document.querySelector('header').classList.contains('hdr-hidden')) {
+    showHeader();
+    e.preventDefault();
+  }
+}, {passive:false, capture:true});
+
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Apostolic Succession Explorer</title>
+<style>  :root{--bg:#1a0f08;--panel:#241610;--ink:#f4e4c1;--gold:#ffd27a;--dim:#8a7660;--pb:#e55353;--found:#6fd96f;--fem:#c08bff;--dio:#6ab6ff;--hi:#5bd9ff;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:Georgia,serif;overflow:hidden;height:100vh;height:100dvh;display:flex;flex-direction:column}
+  header{padding:10px 16px 6px;text-align:center;border-bottom:1px solid #3a2515;transition:transform .3s ease,opacity .3s ease}
+  header.hdr-hidden{transform:translateY(-100%);opacity:0;pointer-events:none}
+  h1{color:var(--gold);font-size:22px;font-weight:normal;letter-spacing:1px}
+  .sub{color:var(--dim);font-size:12px;margin-top:2px}
+  /* ── Desktop toolbar ── */
+  .toolbar{display:flex;gap:10px;align-items:center;padding:10px 20px;border-bottom:1px solid #3a2515;flex-wrap:wrap}
+  .toolbar label{color:var(--dim);font-size:13px}
+  .toolbar select,.toolbar input,.toolbar button{background:#2a1a11;color:var(--ink);border:1px solid #5a3a22;padding:7px 12px;font-family:inherit;font-size:14px;border-radius:3px;cursor:pointer}
+  .toolbar select{min-width:280px}
+  .toolbar input[type=text]{min-width:220px}
+  .toolbar button:hover,.toolbar button.active{background:#3a2518;border-color:var(--gold);color:var(--gold)}
+  .spacer{flex:1}
+  /* ── Mobile toolbar ── */
+  .mob-toolbar{display:none;flex-direction:column;gap:8px;padding:10px 12px;border-bottom:1px solid #3a2515;background:var(--panel);transition:transform .3s ease,opacity .3s ease}
+  .mob-toolbar.hdr-hidden{transform:translateY(-200%);opacity:0;pointer-events:none;margin-top:-200px}
+  .mob-row{display:flex;gap:8px;align-items:center}
+  .mob-toolbar select,.mob-toolbar input[type=text]{flex:1;background:#2a1a11;color:var(--ink);border:1px solid #5a3a22;padding:10px 12px;font-family:inherit;font-size:15px;border-radius:6px;cursor:pointer;-webkit-appearance:none}
+  .mob-toolbar .mob-gen{background:#3a2518;border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-family:inherit;font-size:15px;border-radius:6px;cursor:pointer;white-space:nowrap}
+  .mob-extra{display:flex;gap:6px;flex-wrap:wrap}
+  .mob-btn{background:#2a1a11;color:var(--ink);border:1px solid #5a3a22;padding:7px 12px;font-family:inherit;font-size:13px;border-radius:6px;cursor:pointer}
+  .mob-btn.active{border-color:var(--gold);color:var(--gold)}
+  .mob-chk-label{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:13px;padding:4px 0}
+  /* ── Layout ── */
+  .main{flex:1;display:flex;overflow:hidden;position:relative}
+  #viz{flex:1;position:relative;overflow:hidden;background:radial-gradient(ellipse at center,#2a1810 0%,#0f0804 100%)}
+  #svg{width:100%;height:100%;cursor:grab;touch-action:none}
+  #svg:active{cursor:grabbing}
+  /* ── Desktop side panel ── */
+  .side{width:320px;background:var(--panel);border-left:1px solid #3a2515;padding:16px;overflow-y:auto;font-size:13px}
+  .side h3{color:var(--gold);margin-bottom:8px;font-weight:normal;font-size:15px}
+  .side h4{color:var(--gold);margin:14px 0 6px;font-weight:normal;font-size:14px}
+  /* ── Mobile bottom sheet ── */
+  .mob-sheet{display:none;position:absolute;bottom:0;left:0;right:0;background:var(--panel);border-top:2px solid #5a3a22;border-radius:16px 16px 0 0;z-index:200;max-height:60vh;flex-direction:column;transition:transform .3s ease}
+  .mob-sheet.sheet-hidden{transform:translateY(100%)}
+  .mob-sheet-handle{width:36px;height:4px;background:#5a3a22;border-radius:2px;margin:10px auto 6px}
+  .mob-sheet-tabs{display:flex;border-bottom:1px solid #3a2515}
+  .mob-tab{flex:1;padding:10px;text-align:center;font-size:13px;color:var(--dim);cursor:pointer;border:none;background:none;font-family:inherit}
+  .mob-tab.active{color:var(--gold);border-bottom:2px solid var(--gold)}
+  .mob-sheet-body{padding:14px 16px;overflow-y:auto;flex:1}
+  .mob-sheet-body h3{color:var(--gold);margin-bottom:8px;font-weight:normal;font-size:15px}
+  .mob-sheet-body h4{color:var(--gold);margin:14px 0 6px;font-weight:normal;font-size:14px}
+  /* ── Mobile floating action button (open sheet) ── */
+  .mob-fab{display:none;position:absolute;bottom:76px;right:16px;width:48px;height:48px;border-radius:50%;background:var(--panel);border:1px solid var(--gold);color:var(--gold);font-size:22px;cursor:pointer;align-items:center;justify-content:center;z-index:190;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+  /* ── Shared components ── */
+  .legend-row{display:flex;align-items:center;gap:8px;margin:4px 0}
+  .dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .check-box{display:flex;gap:6px;margin-top:6px}
+  .check-box input{flex:1}
+  .stats div{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted #3a2515}
+  .stats span:last-child{color:var(--gold)}
+  .detail-tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;margin-right:4px}
+  .tag-pb{background:rgba(229,83,83,.2);color:var(--pb)}
+  .tag-f{background:rgba(111,217,111,.2);color:var(--found)}
+  .tag-fem{background:rgba(192,139,255,.2);color:var(--fem)}
+  .consec-item{background:#1a0f08;padding:6px 10px;margin:3px 0;border-radius:3px;border-left:2px solid var(--dio)}
+  #tooltip{position:absolute;background:#1a0f08;border:1px solid var(--gold);border-radius:4px;padding:10px 14px;pointer-events:none;display:none;max-width:280px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+  #tooltip .tname{color:var(--gold);font-size:15px;margin-bottom:4px}
+  #tooltip .tmeta{font-size:12px;color:var(--dim)}
+  .zoom-ctl{position:absolute;bottom:16px;right:16px;display:flex;flex-direction:column;gap:4px}
+  .zoom-ctl button{width:36px;height:36px;font-size:18px;background:var(--panel);border:1px solid #5a3a22;color:var(--ink);cursor:pointer;border-radius:6px}
+  .zoom-ctl button:hover{border-color:var(--gold);color:var(--gold)}
+  #loader{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:1000;padding:24px}
+  #loader h2{color:var(--gold);font-weight:normal}
+  #loader button{background:transparent;border:2px solid var(--gold);color:var(--gold);padding:14px 28px;font-size:18px;font-family:inherit;cursor:pointer;border-radius:4px}
+  #loader button:hover{background:rgba(255,210,122,.1)}
+  #loader p{color:var(--dim);font-size:13px;max-width:520px;text-align:center;line-height:1.5}
+  .node{cursor:pointer;transition:r .2s,opacity .2s}
+  .node:hover{filter:brightness(1.4)}
+  .edge{transition:opacity .2s,stroke-width .2s}
+  .lbl{font-size:10px;fill:var(--ink);pointer-events:none}
+  .result-ok{color:var(--found);margin-top:6px;padding:8px;background:rgba(111,217,111,.1);border-radius:3px;font-size:12px}
+  .result-no{color:var(--pb);margin-top:6px;padding:8px;background:rgba(229,83,83,.1);border-radius:3px;font-size:12px}
+  /* ── Mobile breakpoint ── */
+  @media (max-width: 700px) {
+    h1{font-size:17px;letter-spacing:0.5px}
+    .sub{font-size:10px}
+    header{padding:8px 12px 4px}
+    .toolbar{display:none}
+    .mob-toolbar{display:flex}
+    .side{display:none}
+    .mob-sheet{display:flex}
+    .mob-fab{display:flex}
+    .zoom-ctl{bottom:72px}
+  }
+</style>
+</head>
+<body>
+<div id="loader">
+  <h2>Loading bishop data&hellip;</h2>
+  <p id="loaderMsg" style="color:var(--dim);font-size:13px">Fetching bishops.js&hellip;</p>
+</div>
+<header>
+  <h1>&#10013; Apostolic Succession Explorer &#10013;</h1>
+  <div class="sub" id="sub">Loading…</div>
+  <div class="sub" style="margin-top:2px">Developed by The Rev. Robert Wm. Beazley, Sr.</div>
+</header>
+<div class="toolbar">
+  <label>Select bishop:</label>
+  <select id="sel"><option value="">&mdash; choose &mdash;</option></select>
+  <input type="text" id="search" placeholder="Or type name / number" list="bList">
+  <datalist id="bList"></datalist>
+  <label><input type="checkbox" id="desc"> Include descendants</label>
+  <button id="gen">Generate Map</button>
+  <div class="spacer"></div>
+  <button id="btnV" class="active">Vertical</button>
+  <button id="clr">Clear Highlight</button>
+  <button id="rst">Reset View</button>
+</div>
+
+<!-- Mobile toolbar -->
+<div class="mob-toolbar">
+  <div class="mob-row">
+    <select id="msel"><option value="">&mdash; choose a bishop &mdash;</option></select>
+  </div>
+  <div class="mob-row">
+    <input type="text" id="msearch" placeholder="Or type name / number" list="bList2">
+    <datalist id="bList2"></datalist>
+    <button class="mob-gen" id="mgen">Generate</button>
+  </div>
+  <div class="mob-extra">
+    <label class="mob-chk-label"><input type="checkbox" id="mdesc"> Descendants</label>
+    <button class="mob-btn" id="mclr">Clear</button>
+    <button class="mob-btn" id="mrst">Reset View</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="viz">
+    <svg id="svg"></svg>
+    <div id="tooltip"></div>
+    <div class="zoom-ctl">
+      <button id="zi">+</button>
+      <button id="zo">&minus;</button>
+      <button id="zh">&#8962;</button>
+    </div>
+  </div>
+
+  <!-- Desktop side panel -->
+  <div class="side">
+    <h3>Legend</h3>
+    <div class="legend-row"><span class="dot" style="background:var(--gold)"></span>Focus bishop</div>
+    <div class="legend-row"><span class="dot" style="background:var(--pb)"></span>Presiding Bishop</div>
+    <div class="legend-row"><span class="dot" style="background:var(--found)"></span>Founding (1784&ndash;1790)</div>
+    <div class="legend-row"><span class="dot" style="background:var(--fem)"></span>Female Bishop</div>
+    <div class="legend-row"><span class="dot" style="background:var(--dio)"></span>Diocesan</div>
+    <div class="legend-row"><span class="dot" style="background:var(--hi)"></span>Highlighted lineage</div>
+    <h4>Is this bishop in the lineage?</h4>
+    <div class="check-box">
+      <input type="text" id="chk" placeholder="Name or bishop #">
+      <button id="chkBtn">Check</button>
+    </div>
+    <div id="chkResult" style="color:var(--dim);font-size:12px;margin-top:4px">Generate a map, then type a name or # above.</div>
+    <h3 style="margin-top:18px">Tree Statistics</h3>
+    <div class="stats" id="stats"><div style="color:var(--dim)">No map generated yet.</div></div>
+    <h3 style="margin-top:18px">Bishop Details</h3>
+    <div id="detail" style="color:var(--dim)">Click a bishop to see details.</div>
+  </div>
+
+  <!-- Mobile bottom sheet -->
+  <div class="mob-sheet" id="mobSheet">
+    <div class="mob-sheet-handle" id="sheetHandle"></div>
+    <div class="mob-sheet-tabs">
+      <button class="mob-tab active" data-tab="detail">Bishop</button>
+      <button class="mob-tab" data-tab="stats">Statistics</button>
+      <button class="mob-tab" data-tab="legend">Legend</button>
+      <button class="mob-tab" data-tab="check">Check</button>
+    </div>
+    <div class="mob-sheet-body">
+      <div id="mob-detail-pane">
+        <div id="mobDetail" style="color:var(--dim)">Tap a bishop node to see details.</div>
+      </div>
+      <div id="mob-stats-pane" style="display:none">
+        <div class="stats" id="mobStats"><div style="color:var(--dim)">No map generated yet.</div></div>
+      </div>
+      <div id="mob-legend-pane" style="display:none">
+        <div class="legend-row"><span class="dot" style="background:var(--gold)"></span>Focus bishop</div>
+        <div class="legend-row"><span class="dot" style="background:var(--pb)"></span>Presiding Bishop</div>
+        <div class="legend-row"><span class="dot" style="background:var(--found)"></span>Founding (1784&ndash;1790)</div>
+        <div class="legend-row"><span class="dot" style="background:var(--fem)"></span>Female Bishop</div>
+        <div class="legend-row"><span class="dot" style="background:var(--dio)"></span>Diocesan</div>
+        <div class="legend-row"><span class="dot" style="background:var(--hi)"></span>Highlighted lineage</div>
+      </div>
+      <div id="mob-check-pane" style="display:none">
+        <div class="check-box">
+          <input type="text" id="mchk" placeholder="Name or bishop #">
+          <button id="mchkBtn">Check</button>
+        </div>
+        <div id="mobChkResult" style="color:var(--dim);font-size:12px;margin-top:8px">Generate a map, then type a name or # above.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile FAB to open sheet -->
+  <button class="mob-fab" id="mobFab" title="Info panel">&#9432;</button>
+</div>
+<script>
+const loader = document.getElementById('loader');
+const loaderMsg = document.getElementById('loaderMsg');
+(async () => {
+  const attempted = window.location.href.replace(/[^/]*$/, '') + 'bishops.js';
+  loaderMsg.textContent = 'Fetching bishops.js…';
+  try {
+    const res = await fetch('bishops.js');
+    if (!res.ok) throw new Error('HTTP ' + res.status + ' — tried: ' + attempted);
+    const text = await res.text();
+    new Function(text)();
+    if (window.BISHOP_DATA && window.BISHOP_DATA.bishops) {
+      init(window.BISHOP_DATA);
+      loader.style.display = 'none';
+    } else {
+      loaderMsg.innerHTML = 'bishops.js loaded but no BISHOP_DATA found.<br><small style="color:var(--dim)">URL tried: ' + attempted + '</small>';
+      loaderMsg.style.color = 'var(--pb)';
+    }
+  } catch (err) {
+    loaderMsg.innerHTML =
+      '<b>Could not load bishops.js</b><br>' + err.message +
+      '<br><br><small style="color:var(--dim)">URL tried: ' + attempted + '</small>';
+    loaderMsg.style.color = 'var(--pb)';
+  }
+})();
+
+let DATA = null, BY_NUM = {}, FOCUS = null, NODES = [], EDGES = [];
+let SVG = document.getElementById('svg'), G = null;
+let VIEW = {x:0,y:0,k:1};
+let LAYOUT = 'vertical';
+let HIGHLIGHT = null;
+
+function init(d) {
+  DATA = d;
+  d.bishops.forEach(b => BY_NUM[b.num] = b);
+  document.getElementById('sub').textContent = 'Data as of ' + d.scrapeDate + ' \u00B7 ' + d.bishops.length + ' bishops \u00B7 Most recent: #' + d.mostRecent.num + ' ' + d.mostRecent.name + ' (' + d.mostRecent.year + ', ' + d.mostRecent.diocese + ')';
+  const sel = document.getElementById('sel'), dl = document.getElementById('bList');
+  const msel = document.getElementById('msel'), dl2 = document.getElementById('bList2');
+  d.bishops.forEach(b => {
+    const lbl = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+    const o = document.createElement('option'); o.value = b.num; o.textContent = lbl; sel.appendChild(o);
+    const o2 = document.createElement('option'); o2.value = lbl; dl.appendChild(o2);
+    const mo = document.createElement('option'); mo.value = b.num; mo.textContent = lbl; msel.appendChild(mo);
+    const mo2 = document.createElement('option'); mo2.value = lbl; dl2.appendChild(mo2);
+  });
+  setupEvents();
+}
+
+function setupEvents() {
+  document.getElementById('gen').onclick = generate;
+  document.getElementById('btnV').onclick = () => { LAYOUT='vertical'; render(); };
+  document.getElementById('clr').onclick = () => { HIGHLIGHT=null; render(); document.getElementById('detail').innerHTML='Click a bishop to see details.'; };
+  document.getElementById('rst').onclick = () => { centerView(); };
+  document.getElementById('zi').onclick = () => zoom(1.25);
+  document.getElementById('zo').onclick = () => zoom(0.8);
+  document.getElementById('zh').onclick = () => centerView();
+  document.getElementById('chkBtn').onclick = checkLineage;
+  document.getElementById('chk').onkeyup = e => { if (e.key==='Enter') checkLineage(); };
+  document.getElementById('search').addEventListener('change', e => {
+    const v = e.target.value.trim();
+    const m = v.match(/^#?(\S+)/);
+    if (m && BY_NUM[m[1]]) document.getElementById('sel').value = m[1];
+  });
+  document.getElementById('sel').onchange = e => {
+    const b = BY_NUM[e.target.value];
+    if (b) document.getElementById('search').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+  };
+  let dragging=false, dx=0, dy=0;
+  SVG.addEventListener('mousedown', e => { if (e.target.classList.contains('node')) return; dragging=true; dx=e.clientX-VIEW.x; dy=e.clientY-VIEW.y; });
+  window.addEventListener('mousemove', e => { if (dragging) { VIEW.x=e.clientX-dx; VIEW.y=e.clientY-dy; applyTransform(); } });
+  window.addEventListener('mouseup', () => dragging=false);
+  SVG.addEventListener('wheel', e => { e.preventDefault(); const f = e.deltaY < 0 ? 1.1 : 0.9; zoom(f, e.offsetX, e.offsetY); }, {passive:false});
+
+  // Touch pan, pinch-zoom, and tap-to-select
+  let tc=0, tlx=0, tly=0, pinchD=0, tStartX=0, tStartY=0, tMoved=false;
+  SVG.addEventListener('touchstart', e => {
+    if (e.touches.length===1) {
+      tc=1;
+      tStartX=e.touches[0].clientX; tStartY=e.touches[0].clientY; tMoved=false;
+      tlx=e.touches[0].clientX-VIEW.x; tly=e.touches[0].clientY-VIEW.y;
+    } else if (e.touches.length===2) {
+      tc=2;
+      const dx2=e.touches[0].clientX-e.touches[1].clientX, dy2=e.touches[0].clientY-e.touches[1].clientY;
+      pinchD=Math.hypot(dx2,dy2);
+    }
+    e.preventDefault();
+  }, {passive:false});
+  SVG.addEventListener('touchmove', e => {
+    if (tc===1) {
+      const moved = Math.hypot(e.touches[0].clientX-tStartX, e.touches[0].clientY-tStartY);
+      if (moved > 5) tMoved=true;
+      VIEW.x=e.touches[0].clientX-tlx; VIEW.y=e.touches[0].clientY-tly; applyTransform();
+    } else if (tc===2 && e.touches.length===2) {
+      const dx2=e.touches[0].clientX-e.touches[1].clientX, dy2=e.touches[0].clientY-e.touches[1].clientY;
+      const nd=Math.hypot(dx2,dy2); if (pinchD>0) { const f=nd/pinchD; zoom(f); } pinchD=nd;
+    }
+    e.preventDefault();
+  }, {passive:false});
+  SVG.addEventListener('touchend', e => {
+    if (tc===1 && !tMoved) {
+      // Tap — find if a node was hit
+      const svgRect = SVG.getBoundingClientRect();
+      const cx = (tStartX - svgRect.left - VIEW.x) / VIEW.k;
+      const cy = (tStartY - svgRect.top  - VIEW.y) / VIEW.k;
+      const hit = NODES.find(n => {
+        const pos = _lastPos && _lastPos[n.num];
+        if (!pos) return false;
+        const r = n.num===FOCUS.num ? 14 : 12;
+        return Math.hypot(cx-pos.x, cy-pos.y) <= r;
+      });
+      if (hit) pinNode(hit);
+    }
+    tc=e.touches.length;
+  }, {passive:false});
+
+  // Mobile controls
+  const isMob = () => window.innerWidth <= 700;
+  document.getElementById('mgen').onclick = () => generateMob();
+  document.getElementById('mclr').onclick = () => { HIGHLIGHT=null; render(); document.getElementById('mobDetail').innerHTML='Tap a bishop node to see details.'; };
+  document.getElementById('mrst').onclick = () => centerView();
+  document.getElementById('mchkBtn').onclick = checkLineageMob;
+  document.getElementById('mchk').onkeyup = e => { if(e.key==='Enter') checkLineageMob(); };
+  document.getElementById('msel').onchange = e => {
+    const b = BY_NUM[e.target.value];
+    if (b) document.getElementById('msearch').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+  };
+  document.getElementById('msearch').addEventListener('change', e => {
+    const v = e.target.value.trim(); const m = v.match(/^#?(\S+)/);
+    if (m && BY_NUM[m[1]]) document.getElementById('msel').value = m[1];
+  });
+
+  // Bottom sheet tabs
+  document.querySelectorAll('.mob-tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const pane = tab.dataset.tab;
+      ['detail','stats','legend','check'].forEach(p => {
+        document.getElementById('mob-'+p+'-pane').style.display = p===pane ? '' : 'none';
+      });
+    };
+  });
+
+  // Sheet handle / tab-bar tap dismisses sheet; tapping canvas re-opens it
+  const sheet = document.getElementById('mobSheet');
+  const sheetHandle = document.getElementById('sheetHandle');
+  const sheetTabs = document.querySelector('.mob-sheet-tabs');
+
+  function dismissSheet() { sheet.classList.add('sheet-hidden'); }
+  function showSheet()    { sheet.classList.remove('sheet-hidden'); }
+
+  sheetHandle.addEventListener('click', dismissSheet);
+  // Also allow tapping the tab bar area (not a tab button itself) to dismiss
+  sheetTabs.addEventListener('click', e => { if (!e.target.classList.contains('mob-tab')) dismissSheet(); });
+
+  // FAB also toggles
+  document.getElementById('mobFab').onclick = () => {
+    if (sheet.classList.contains('sheet-hidden')) showSheet();
+    else dismissSheet();
+  };
+
+  // Tap on canvas (not a node) re-opens sheet
+  SVG.addEventListener('click', e => {
+    if (!e.target.classList.contains('node') && window.innerWidth <= 700 && FOCUS) showSheet();
+  });
+}
+
+function zoom(f, cx, cy) {
+  const rect = SVG.getBoundingClientRect();
+  cx = cx == null ? rect.width/2 : cx;
+  cy = cy == null ? rect.height/2 : cy;
+  VIEW.x = cx - (cx - VIEW.x) * f;
+  VIEW.y = cy - (cy - VIEW.y) * f;
+  VIEW.k *= f;
+  applyTransform();
+}
+function applyTransform() { if (G) G.setAttribute('transform', 'translate(' + VIEW.x + ',' + VIEW.y + ') scale(' + VIEW.k + ')'); }
+function centerView() {
+  const rect = SVG.getBoundingClientRect();
+  VIEW = {x: rect.width/2, y: rect.height/2, k: 1};
+  applyTransform();
+}
+
+function generate() {
+  const num = document.getElementById('sel').value || (document.getElementById('search').value.replace(/^#?/, '').split(/\s/)[0]);
+  const b = BY_NUM[num];
+  if (!b) { alert('Bishop not found. Pick from the dropdown or type its number.'); return; }
+  FOCUS = b;
+  const includeDesc = document.getElementById('desc').checked;
+  const visited = new Set(), edges = [];
+  function up(n, dep) {
+    if (visited.has(n.num) || dep > 60) return;
+    visited.add(n.num);
+    (n.consecrators||[]).forEach(cn => {
+      if (BY_NUM[cn]) { edges.push([cn, n.num]); up(BY_NUM[cn], dep+1); }
+    });
+  }
+  up(b, 0);
+  if (includeDesc) {
+    const children = {};
+    DATA.bishops.forEach(bp => (bp.consecrators||[]).forEach(c => { (children[c]=children[c]||[]).push(bp.num); }));
+    function down(num, dep) {
+      if (dep > 60) return;
+      (children[num]||[]).forEach(cn => {
+        edges.push([num, cn]);
+        if (!visited.has(cn)) { visited.add(cn); down(cn, dep+1); }
+      });
+    }
+    visited.add(b.num); down(b.num, 0);
+  }
+  NODES = Array.from(visited).map(n => BY_NUM[n]).filter(Boolean);
+  const seen = new Set(); EDGES = [];
+  edges.forEach(arr => { const a=arr[0], c=arr[1]; const k=a+'|'+c; if (!seen.has(k)) { seen.add(k); EDGES.push([a,c]); } });
+  HIGHLIGHT = null;
+  VIEW = {x:0,y:0,k:1};
+  render();
+  updateStats();
+  showDetail(b);
+  document.getElementById('chkResult').textContent = 'Ready. Type a name or # above to check.';
+  document.getElementById('chkResult').className = '';
+  document.getElementById('chkResult').style.color = 'var(--dim)';
+  // Auto-hide header on mobile after 4 seconds
+  if (window.innerWidth <= 700) { startHeaderHideTimer(); }
+  // Open mobile sheet on mobile only
+  const sheet = document.getElementById('mobSheet');
+  if (sheet && window.innerWidth <= 700) { sheet.style.display = 'flex'; sheet.classList.remove('sheet-hidden'); }
+  document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
+  const detailTab = document.querySelector('.mob-tab[data-tab="detail"]');
+  if (detailTab) { detailTab.classList.add('active'); }
+  ['detail','stats','legend','check'].forEach(p => {
+    const el = document.getElementById('mob-'+p+'-pane');
+    if (el) el.style.display = p==='detail' ? '' : 'none';
+  });
+}
+
+function computeLayout() {
+  const gen = {}; gen[FOCUS.num] = 0;
+  const parents = {}, children = {};
+  EDGES.forEach(arr => { const p=arr[0],c=arr[1]; (children[p]=children[p]||[]).push(c); (parents[c]=parents[c]||[]).push(p); });
+  const q = [FOCUS.num];
+  while (q.length) {
+    const n = q.shift();
+    (parents[n]||[]).forEach(p => { if (gen[p]==null) { gen[p] = gen[n] - 1; q.push(p); } });
+  }
+  const q2 = [FOCUS.num];
+  while (q2.length) {
+    const n = q2.shift();
+    (children[n]||[]).forEach(c => { if (gen[c]==null) { gen[c] = gen[n] + 1; q2.push(c); } });
+  }
+  NODES.forEach(n => { if (gen[n.num]==null) gen[n.num] = 0; });
+  const byGen = {};
+  NODES.forEach(n => { const g = gen[n.num]; (byGen[g]=byGen[g]||[]).push(n); });
+  const gens = Object.keys(byGen).map(Number).sort((a,b)=>a-b);
+  const pos = {};
+  const yStep = 90, xStep = 75;
+  gens.forEach(g => {
+    const arr = byGen[g];
+    const w = (arr.length - 1) * xStep;
+    arr.forEach((n,i) => { pos[n.num] = {x: -w/2 + i*xStep, y: g * yStep}; });
+  });
+  return pos;
+}
+
+let _lastPos = null;
+function render() {
+  const pos = computeLayout();
+  _lastPos = pos;
+  const rect = SVG.getBoundingClientRect();
+  if (VIEW.x === 0 && VIEW.y === 0 && VIEW.k === 1) {
+    VIEW.x = rect.width/2; VIEW.y = rect.height/2;
+  }
+  SVG.innerHTML = '';
+  G = document.createElementNS('http://www.w3.org/2000/svg','g');
+  SVG.appendChild(G);
+  applyTransform();
+  const hlNodes = HIGHLIGHT ? HIGHLIGHT.nodes : null;
+  const hlEdges = HIGHLIGHT ? HIGHLIGHT.edges : null;
+  EDGES.forEach(arr => {
+    const a=arr[0], c=arr[1];
+    const pa = pos[a], pc = pos[c]; if (!pa || !pc) return;
+    const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',pa.x); ln.setAttribute('y1',pa.y);
+    ln.setAttribute('x2',pc.x); ln.setAttribute('y2',pc.y);
+    ln.classList.add('edge');
+    const key = a+'|'+c;
+    if (hlEdges) {
+      if (hlEdges.has(key)) { ln.setAttribute('stroke','#5bd9ff'); ln.setAttribute('stroke-width',2.5); ln.setAttribute('opacity','1'); }
+      else { ln.setAttribute('stroke','#5a3a22'); ln.setAttribute('stroke-width',0.5); ln.setAttribute('opacity','0.08'); }
+    } else {
+      const ap = BY_NUM[a], cp = BY_NUM[c];
+      const stroke = (ap && ap.pb) || (cp && cp.pb) ? 'rgba(229,83,83,0.4)' : 'rgba(106,182,255,0.3)';
+      ln.setAttribute('stroke', stroke); ln.setAttribute('stroke-width', 1);
+    }
+    G.appendChild(ln);
+  });
+  NODES.forEach(n => {
+    const p = pos[n.num]; if (!p) return;
+    const dimmed = hlNodes && !hlNodes.has(n.num);
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')');
+    if (n.num === FOCUS.num) {
+      const h = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      h.setAttribute('r',16); h.setAttribute('fill','#ffd27a'); h.setAttribute('opacity','0.2');
+      g.appendChild(h);
+    }
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    const mobR = window.innerWidth <= 700;
+    c.setAttribute('r', n.num===FOCUS.num ? (mobR?14:10) : (hlNodes && hlNodes.has(n.num) ? (mobR?10:7) : (mobR?8:5)));
+    c.setAttribute('fill', nodeColor(n));
+    const oc = outlineColor(n);
+    c.setAttribute('stroke', oc);
+    c.setAttribute('stroke-width', oc!=='none' ? 2 : 0);
+    c.setAttribute('opacity', dimmed ? 0.08 : 1);
+    c.classList.add('node');
+    c.addEventListener('click', ev => { ev.stopPropagation(); pinNode(n); });
+    if (window.innerWidth > 700) {
+      c.addEventListener('mousemove', ev => showTooltip(ev, n));
+      c.addEventListener('mouseleave', hideTooltip);
+    }
+    g.appendChild(c);
+    const mob = window.innerWidth <= 700;
+    const isFocus = n.num === FOCUS.num;
+    const isHL = hlNodes && hlNodes.has(n.num);
+    // Desktop: show label for ALL nodes (not just focus/highlighted)
+    // Mobile: show label for all nodes
+    {
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x', mob ? 10 : 13);
+      t.setAttribute('y', mob ? 4 : 4);
+      t.classList.add('lbl');
+      if (mob) t.setAttribute('font-size', isFocus ? '10' : '8');
+      t.setAttribute('fill', isFocus ? '#ffd27a' : (isHL ? '#5bd9ff' : '#c8b89a'));
+
+      // Strip generational suffixes to find the real last name
+      const SUFFIXES = new Set(['jr','jr.','sr','sr.','ii','iii','iv','v','vi']);
+      const parts = n.name.split(' ');
+      const firstInitial = parts[0][0];
+      // Walk backwards past any suffix tokens to find the surname
+      let lastNameIdx = parts.length - 1;
+      while (lastNameIdx > 0 && SUFFIXES.has(parts[lastNameIdx].toLowerCase())) lastNameIdx--;
+      const lastName = parts[lastNameIdx];
+      // Build "F. Last" form (append suffix if present)
+      const suffix = lastNameIdx < parts.length - 1 ? ' ' + parts.slice(lastNameIdx+1).join(' ') : '';
+      const shortForm = firstInitial + '. ' + lastName + suffix;
+
+      if (mob) {
+        // Mobile: focus = full name; others = last name (no suffix) if <=10 chars, else #num
+        if (isFocus) {
+          t.textContent = n.name;
+        } else {
+          t.textContent = lastName.length <= 10 ? lastName : '#' + n.num;
+        }
+      } else {
+        // Desktop: always "F. Last" except for focus bishop which gets full name
+        if (isFocus) {
+          t.textContent = n.name;
+        } else {
+          t.textContent = shortForm;
+        }
+      }
+      g.appendChild(t);
+    }
+    G.appendChild(g);
+  });
+}
+
+function nodeColor(n) {
+  if (n.num === FOCUS.num) return '#ffd27a';
+  const yr = parseInt(n.year);
+  if (yr >= 1784 && yr <= 1790) return '#6fd96f';
+  if (n.pb) return '#e55353';
+  if (n.female) return '#c08bff';
+  return '#6ab6ff';
+}
+function outlineColor(n) {
+  const yr = parseInt(n.year);
+  if (yr >= 1784 && yr <= 1790 && n.pb) return '#e55353';
+  return 'none';
+}
+
+function pinNode(n) {
   showDetail(n);
   if (n.num === FOCUS.num) { HIGHLIGHT = null; render(); return; }
   const path = findPath(n.num, FOCUS.num);
