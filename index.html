@@ -153,7 +153,7 @@
     <div class="legend-row"><span class="dot" style="background:var(--fem)"></span>Female Bishop</div>
     <div class="legend-row"><span class="dot" style="background:var(--dio)"></span>Diocesan</div>
     <div class="legend-row"><span class="dot" style="background:var(--hi)"></span>Highlighted lineage</div>
-    <h4>Bishop Lineage Look-Up</h4>
+    <h4>Is this bishop in the lineage?</h4>
     <div class="check-box">
       <input type="text" id="chk" placeholder="Name or bishop #">
       <button id="chkBtn">Check</button>
@@ -260,15 +260,30 @@ function setupEvents() {
   document.getElementById('zh').onclick = () => centerView();
   document.getElementById('chkBtn').onclick = checkLineage;
   document.getElementById('chk').onkeyup = e => { if (e.key==='Enter') checkLineage(); };
+  // Desktop: auto-generate on dropdown selection
+  document.getElementById('sel').onchange = e => {
+    const b = BY_NUM[e.target.value];
+    if (b) {
+      document.getElementById('search').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+      generate();
+    }
+  };
+  // Desktop: auto-generate 600ms after user stops typing a valid bishop
+  let _searchTimer = null;
+  document.getElementById('search').addEventListener('input', e => {
+    clearTimeout(_searchTimer);
+    const v = e.target.value.trim();
+    const m = v.match(/^#?(\S+)/);
+    if (m && BY_NUM[m[1]]) {
+      document.getElementById('sel').value = m[1];
+      _searchTimer = setTimeout(generate, 600);
+    }
+  });
   document.getElementById('search').addEventListener('change', e => {
     const v = e.target.value.trim();
     const m = v.match(/^#?(\S+)/);
-    if (m && BY_NUM[m[1]]) document.getElementById('sel').value = m[1];
+    if (m && BY_NUM[m[1]]) { document.getElementById('sel').value = m[1]; generate(); }
   });
-  document.getElementById('sel').onchange = e => {
-    const b = BY_NUM[e.target.value];
-    if (b) document.getElementById('search').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
-  };
   let dragging=false, dx=0, dy=0;
   SVG.addEventListener('mousedown', e => { if (e.target.classList.contains('node')) return; dragging=true; dx=e.clientX-VIEW.x; dy=e.clientY-VIEW.y; });
   window.addEventListener('mousemove', e => { if (dragging) { VIEW.x=e.clientX-dx; VIEW.y=e.clientY-dy; applyTransform(); } });
@@ -324,13 +339,28 @@ function setupEvents() {
   document.getElementById('mrst').onclick = () => centerView();
   document.getElementById('mchkBtn').onclick = checkLineageMob;
   document.getElementById('mchk').onkeyup = e => { if(e.key==='Enter') checkLineageMob(); };
+  // Mobile: auto-generate on dropdown selection
   document.getElementById('msel').onchange = e => {
     const b = BY_NUM[e.target.value];
-    if (b) document.getElementById('msearch').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+    if (b) {
+      document.getElementById('msearch').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+      generateMob();
+    }
   };
+  // Mobile: auto-generate 600ms after typing a valid bishop
+  let _msearchTimer = null;
+  document.getElementById('msearch').addEventListener('input', e => {
+    clearTimeout(_msearchTimer);
+    const v = e.target.value.trim();
+    const m = v.match(/^#?(\S+)/);
+    if (m && BY_NUM[m[1]]) {
+      document.getElementById('msel').value = m[1];
+      _msearchTimer = setTimeout(generateMob, 600);
+    }
+  });
   document.getElementById('msearch').addEventListener('change', e => {
     const v = e.target.value.trim(); const m = v.match(/^#?(\S+)/);
-    if (m && BY_NUM[m[1]]) document.getElementById('msel').value = m[1];
+    if (m && BY_NUM[m[1]]) { document.getElementById('msel').value = m[1]; generateMob(); }
   });
 
   // Bottom sheet tabs
@@ -339,7 +369,7 @@ function setupEvents() {
       document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       const pane = tab.dataset.tab;
-      ['detail','stats','legend','check'].forEach(p => {
+      ['detail','stats','legend','lineage'].forEach(p => {
         document.getElementById('mob-'+p+'-pane').style.display = p===pane ? '' : 'none';
       });
     };
@@ -680,7 +710,7 @@ function showDetail(n, lineagePath) {
   if (window.innerWidth <= 700) {
     document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
     const dt = document.querySelector('.mob-tab[data-tab="detail"]'); if (dt) dt.classList.add('active');
-    ['detail','stats','legend','check'].forEach(p => {
+    ['detail','stats','legend','lineage'].forEach(p => {
       const el = document.getElementById('mob-'+p+'-pane'); if (el) el.style.display = p==='detail'?'':'none';
     });
     const sheet = document.getElementById('mobSheet'); if (sheet && window.innerWidth <= 700) { sheet.style.display = 'flex'; sheet.classList.remove('sheet-hidden'); }
