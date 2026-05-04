@@ -101,7 +101,7 @@
 <header>
   <h1>&#10013; Apostolic Succession Explorer &#10013;</h1>
   <div class="sub" id="sub">Loading…</div>
-  <div class="sub" style="margin-top:2px">Developed by The Rev. Robert Wm. Beazley &nbsp;&middot;&nbsp; Data: <a href="https://www.wikidata.org/wiki/Q6607952" target="_blank" rel="noopener" style="color:var(--dim);text-decoration:underline dotted">Wikidata Q6607952</a></div>
+  <div class="sub" style="margin-top:2px">Developed by The Rev. Robert Wm. Beazley, Sr. &nbsp;&middot;&nbsp; Data: <a href="https://www.wikidata.org/wiki/Q6607952" target="_blank" rel="noopener" style="color:var(--dim);text-decoration:underline dotted">Wikidata Q6607952</a></div>
 </header>
 <div class="toolbar">
   <label>Select bishop:</label>
@@ -369,7 +369,7 @@ function setupEvents() {
       document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       const pane = tab.dataset.tab;
-      ['detail','stats','legend','lineage'].forEach(p => {
+      ['detail','stats','legend','check'].forEach(p => {
         document.getElementById('mob-'+p+'-pane').style.display = p===pane ? '' : 'none';
       });
     };
@@ -710,7 +710,7 @@ function showDetail(n, lineagePath) {
   if (window.innerWidth <= 700) {
     document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
     const dt = document.querySelector('.mob-tab[data-tab="detail"]'); if (dt) dt.classList.add('active');
-    ['detail','stats','legend','lineage'].forEach(p => {
+    ['detail','stats','legend','check'].forEach(p => {
       const el = document.getElementById('mob-'+p+'-pane'); if (el) el.style.display = p==='detail'?'':'none';
     });
     const sheet = document.getElementById('mobSheet'); if (sheet && window.innerWidth <= 700) { sheet.style.display = 'flex'; sheet.classList.remove('sheet-hidden'); }
