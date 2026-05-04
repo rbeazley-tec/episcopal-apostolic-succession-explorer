@@ -486,11 +486,35 @@ function computeLayout() {
   NODES.forEach(n => { const g = gen[n.num]; (byGen[g]=byGen[g]||[]).push(n); });
   const gens = Object.keys(byGen).map(Number).sort((a,b)=>a-b);
   const pos = {};
-  const yStep = 90, xStep = 75;
+  const yStep = 90;
+  const mob = window.innerWidth <= 700;
+  const SUFFIXES = new Set(['jr','jr.','sr','sr.','ii','iii','iv','v','vi']);
+
+  // Estimate label width for each node so spacing never causes overlap
+  function labelWidth(n) {
+    if (mob) return 60; // mobile uses fixed spacing
+    const parts = n.name.split(' ');
+    let lastIdx = parts.length - 1;
+    while (lastIdx > 0 && SUFFIXES.has(parts[lastIdx].toLowerCase())) lastIdx--;
+    const lastName = parts[lastIdx];
+    const suffix = lastIdx < parts.length - 1 ? ' ' + parts.slice(lastIdx+1).join(' ') : '';
+    const label = n.num === FOCUS.num ? n.name : (parts[0][0] + '. ' + lastName + suffix);
+    // Approximate: Georgia 10px ≈ 5.5px per char, plus 18px node gap
+    return Math.max(75, label.length * 5.8 + 18);
+  }
+
   gens.forEach(g => {
     const arr = byGen[g];
-    const w = (arr.length - 1) * xStep;
-    arr.forEach((n,i) => { pos[n.num] = {x: -w/2 + i*xStep, y: g * yStep}; });
+    // Compute per-pair spacing: max of left node's label width and right node's label width
+    const spacings = [];
+    for (let i = 0; i < arr.length - 1; i++) {
+      spacings.push(Math.max(labelWidth(arr[i]), labelWidth(arr[i+1])));
+    }
+    // Lay out with variable spacing
+    const xs = [0];
+    for (let i = 0; i < spacings.length; i++) xs.push(xs[i] + spacings[i]);
+    const totalW = xs[xs.length - 1] || 0;
+    arr.forEach((n, i) => { pos[n.num] = {x: xs[i] - totalW/2, y: g * yStep}; });
   });
   return pos;
 }
