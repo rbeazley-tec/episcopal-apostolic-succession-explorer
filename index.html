@@ -79,6 +79,8 @@
   .lbl{font-size:10px;fill:var(--ink);pointer-events:none}
   .result-ok{color:var(--found);margin-top:6px;padding:8px;background:rgba(111,217,111,.1);border-radius:3px;font-size:12px}
   .result-no{color:var(--pb);margin-top:6px;padding:8px;background:rgba(229,83,83,.1);border-radius:3px;font-size:12px}
+  .gen-from-detail{background:transparent;border:1px solid #5a3a22;color:var(--dim);font-size:11px;padding:2px 7px;border-radius:3px;cursor:pointer;font-family:inherit;margin-left:8px;vertical-align:middle}
+  .gen-from-detail:hover{border-color:var(--gold);color:var(--gold)}
   /* ── Mobile breakpoint ── */
   @media (max-width: 700px) {
     h1{font-size:17px;letter-spacing:0.5px}
@@ -101,7 +103,7 @@
 <header>
   <h1>&#10013; Apostolic Succession Explorer &#10013;</h1>
   <div class="sub" id="sub">Loading…</div>
-  <div class="sub" style="margin-top:2px">Developed by The Rev. Robert Wm. Beazley &nbsp;&middot;&nbsp; Data: <a href="https://www.wikidata.org/wiki/Q6607952" target="_blank" rel="noopener" style="color:var(--dim);text-decoration:underline dotted">Wikidata Q6607952</a></div>
+  <div class="sub" style="margin-top:2px">Developed by The Rev. Robert Wm. Beazley, Sr. &nbsp;&middot;&nbsp; Data: <a href="https://www.wikidata.org/wiki/Q6607952" target="_blank" rel="noopener" style="color:var(--dim);text-decoration:underline dotted">Wikidata Q6607952</a></div>
 </header>
 <div class="toolbar">
   <label>Select bishop:</label>
@@ -722,14 +724,26 @@ function showDetail(n, lineagePath) {
   } else if (yr >= 1784 && yr <= 1790) {
     consecHtml = '<h4>Consecrators</h4><div class="consec-item" style="border-left-color:#5a3a22;color:#8a7660">English/Scottish bishops (outside ECUSA)</div>';
   }
+  const isFocusBishop = n.num === FOCUS.num;
+  const genBtn = isFocusBishop ? '' : '<button class="gen-from-detail" data-num="' + n.num + '">Generate Map</button>';
   const detailHtml =
-    '<div style="color:#ffd27a;font-size:16px;margin-bottom:4px">' + n.name + '</div>' +
+    '<div style="color:#ffd27a;font-size:16px;margin-bottom:4px">' + n.name + genBtn + '</div>' +
     '<div style="color:#8a7660;font-size:12px;margin-bottom:8px">Bishop #' + n.num + (tags.length ? ' \u00B7 ' + tags.join(' ') : '') + '</div>' +
     '<div><b>Consecrated:</b> ' + (n.year||'?') + '</div>' +
     '<div><b>Diocese:</b> ' + (n.diocese||'?') + '</div>' +
     consecHtml;
   document.getElementById('detail').innerHTML = detailHtml;
   const md = document.getElementById('mobDetail'); if (md) md.innerHTML = detailHtml;
+  // Wire up generate buttons in both panels
+  document.querySelectorAll('.gen-from-detail').forEach(btn => {
+    btn.onclick = () => {
+      const b = BY_NUM[btn.dataset.num];
+      if (!b) return;
+      document.getElementById('sel').value = b.num;
+      document.getElementById('search').value = '#' + b.num + ' ' + b.name + (b.year ? ' (' + b.year + ')' : '');
+      generate();
+    };
+  });
   // On mobile, switch sheet to detail tab
   if (window.innerWidth <= 700) {
     document.querySelectorAll('.mob-tab').forEach(t => t.classList.remove('active'));
