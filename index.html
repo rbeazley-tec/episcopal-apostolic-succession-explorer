@@ -81,6 +81,19 @@
   .result-no{color:var(--pb);margin-top:6px;padding:8px;background:rgba(229,83,83,.1);border-radius:3px;font-size:12px}
   .gen-from-detail{background:transparent;border:1px solid #5a3a22;color:var(--dim);font-size:11px;padding:2px 7px;border-radius:3px;cursor:pointer;font-family:inherit;margin-left:8px;vertical-align:middle}
   .gen-from-detail:hover{border-color:var(--gold);color:var(--gold)}
+  /* ── Intro overlay ── */
+  #intro{position:fixed;inset:0;background:var(--bg);z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+  .intro-card{max-width:600px;width:100%;background:var(--panel);border:1px solid #5a3a22;border-radius:8px;padding:36px 40px;text-align:center}
+  .intro-card h1{color:var(--gold);font-size:26px;font-weight:normal;letter-spacing:1px;margin-bottom:6px}
+  .intro-card .intro-sub{color:var(--dim);font-size:13px;margin-bottom:28px}
+  .intro-card .intro-body{text-align:left;color:var(--ink);font-size:14px;line-height:1.7;margin-bottom:28px}
+  .intro-card .intro-body h3{color:var(--gold);font-weight:normal;font-size:15px;margin:18px 0 6px}
+  .intro-card .intro-body p{margin-bottom:10px}
+  .intro-card .intro-body ul{padding-left:20px;margin-bottom:10px}
+  .intro-card .intro-body li{margin-bottom:6px}
+  .intro-begin{background:transparent;border:2px solid var(--gold);color:var(--gold);padding:13px 44px;font-size:17px;font-family:inherit;cursor:pointer;border-radius:4px;letter-spacing:0.5px}
+  .intro-begin:hover{background:rgba(255,210,122,.1)}
+  @media(max-width:700px){.intro-card{padding:24px 20px}.intro-card h1{font-size:20px}}
   /* ── Mobile breakpoint ── */
   @media (max-width: 700px) {
     h1{font-size:17px;letter-spacing:0.5px}
@@ -99,6 +112,37 @@
 <div id="loader">
   <h2>Loading bishop data&hellip;</h2>
   <p id="loaderMsg" style="color:var(--dim);font-size:13px">Fetching bishops.js&hellip;</p>
+</div>
+<div id="intro">
+  <div class="intro-card">
+    <h1>&#10013; Apostolic Succession Explorer &#10013;</h1>
+    <div class="intro-sub">Developed by The Rev. Robert Wm. Beazley, Sr.</div>
+    <div class="intro-body">
+      <p>Welcome! This tool lets you explore the apostolic succession of bishops in the Episcopal Church — tracing the unbroken chain of consecrations from the earliest American bishops all the way to the present day.</p>
+
+      <h3>How to use it</h3>
+      <ul>
+        <li><b>Select a bishop</b> from the dropdown or type a name or bishop number into the search field. A map will generate automatically.</li>
+        <li><b>Each dot</b> on the map represents a bishop. The gold dot is your selected bishop; lines connect them to their consecrators.</li>
+        <li><b>Click or tap any dot</b> to see that bishop&rsquo;s details and highlight their path to the focus bishop.</li>
+        <li>From the detail panel, click <b>Generate Map</b> to make any bishop the new focus.</li>
+        <li>Use <b>pinch-to-zoom</b> (mobile) or your mouse wheel (desktop) to zoom in and out, and drag to pan around the map.</li>
+      </ul>
+
+      <h3>Color guide</h3>
+      <ul>
+        <li><span style="color:#ffd27a">&#9679;</span> <b>Gold</b> &mdash; your selected focus bishop</li>
+        <li><span style="color:#e55353">&#9679;</span> <b>Red</b> &mdash; Presiding Bishop</li>
+        <li><span style="color:#6fd96f">&#9679;</span> <b>Green</b> &mdash; Founding bishop (1784&ndash;1790)</li>
+        <li><span style="color:#c08bff">&#9679;</span> <b>Purple</b> &mdash; Female bishop</li>
+        <li><span style="color:#6ab6ff">&#9679;</span> <b>Blue</b> &mdash; Diocesan bishop</li>
+      </ul>
+
+      <h3>A note on the data</h3>
+      <p>This explorer covers 1,178 bishops of the Episcopal Church. Data is drawn from <a href="https://www.wikidata.org/wiki/Q6607952" target="_blank" rel="noopener" style="color:var(--dim);text-decoration:underline dotted">Wikidata Q6607952</a> and reflects consecrations recorded as of April 2026.</p>
+    </div>
+    <button class="intro-begin" id="introBtn">I understand &mdash; Let me explore</button>
+  </div>
 </div>
 <header>
   <h1>&#10013; Apostolic Succession Explorer &#10013;</h1>
@@ -205,6 +249,17 @@
   <button class="mob-fab" id="mobFab" title="Info panel">&#9432;</button>
 </div>
 <script>
+// ── Intro overlay (once per session) ──
+const introEl = document.getElementById('intro');
+if (sessionStorage.getItem('introSeen')) {
+  introEl.style.display = 'none';
+} else {
+  document.getElementById('introBtn').onclick = () => {
+    introEl.style.display = 'none';
+    sessionStorage.setItem('introSeen', '1');
+  };
+}
+
 const loader = document.getElementById('loader');
 const loaderMsg = document.getElementById('loaderMsg');
 (async () => {
